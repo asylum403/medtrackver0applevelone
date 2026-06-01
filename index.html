@@ -143,36 +143,20 @@
     <div class="si" data-s="output"><span class="num">3</span> Reminders</div>
   </div>
 
-  <div class="banner">
-    🔒 <b>Nothing is saved here.</b> Your medication list stays on this device, in this page only — close or refresh and it's erased. When you scan a label, the photo is sent securely to be read, then discarded — never stored. <br>
-    ⚠️ <b>Not medical advice.</b> This tool only organizes information you enter and confirm. Always follow your prescriber's and pharmacist's instructions.
-    <div style="margin-top:8px"><b>To keep your list:</b> when you're done, copy or download it into your phone's Notes/Messages/Files. Next time, paste it back to pick up where you left off.</div>
+  <div class="banner" style="font-size:15px">
+    🔒 Private — your list stays on this device. ⚠️ Not medical advice; always follow your prescriber. <a href="legal.html" target="_blank" rel="noopener">Privacy &amp; safety ›</a>
   </div>
 
   <!-- STEP 1: build / load -->
   <section id="builder">
 
-    <div class="banner" style="font-size:18px;border-color:var(--brand)">
-      <b>Step 1 — Add everything you take.</b><br>
-      Scan a label or tap <b>✍️ Add manually</b> for each medication or supplement. When your list looks complete, press the big blue <b>Review &amp; approve ›</b> button at the bottom of the screen.
-    </div>
-
     <div class="card">
-      <h2>① Already have a list? Paste it back in</h2>
-      <p class="muted" style="margin:.2em 0 .6em">Paste the document you saved last time. We'll rebuild your list so you only add/update what changed — no re-typing.</p>
-      <textarea id="pasteIn" placeholder="Paste your saved PillPal list here…"></textarea>
-      <div class="row" style="margin-top:10px">
-        <button class="primary" onclick="loadPasted()">Load my list</button>
-        <span id="loadMsg" class="muted"></span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>② Add a medication</h2>
+      <h2>Add a medication or supplement</h2>
+      <p class="muted" style="margin:.1em 0 .9em;font-size:16px">Add each one you take. You'll review them and turn on reminders next.</p>
       <div class="row">
-        <button onclick="document.getElementById('photo').click()">📷 Scan a label (photo)</button>
+        <button class="primary" style="flex:1 1 160px" onclick="document.getElementById('photo').click()">📷 Scan a label</button>
         <input id="photo" type="file" accept="image/*" capture="environment" class="hide" onchange="runOCR(event)">
-        <button class="ghost" onclick="showForm()">✍️ Add manually</button>
+        <button class="ghost" style="flex:1 1 160px" onclick="showForm()">✍️ Type it in</button>
       </div>
       <div class="muted" style="font-size:15px;margin-top:6px">📶 Photo scan needs an internet connection — <b>Wi-Fi works best</b> (faster, and no mobile data). Typing by hand always works offline.</div>
       <div id="scanStatus"></div>
@@ -263,18 +247,27 @@
     <div id="changes" class="changes hide"></div>
 
     <div class="card" id="listCard">
-      <h2>Your medications (<span id="count">0</span>)</h2>
-      <div id="list"><p class="muted">No medications yet. Scan a label or add one manually above.</p></div>
+      <h2>Your list (<span id="count">0</span>)</h2>
+      <div id="list"><p class="muted">Nothing yet — tap “Scan a label” or “Type it in” above to start.</p></div>
     </div>
+
+    <details class="more" style="margin-top:4px">
+      <summary>Returning? Restore a saved list</summary>
+      <p class="muted" style="margin:.4em 0 .6em;font-size:15px">Paste the list you saved last time and we'll rebuild it.</p>
+      <textarea id="pasteIn" placeholder="Paste your saved PillPal list here…"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" onclick="loadPasted()">Load my list</button>
+        <span id="loadMsg" class="muted"></span>
+      </div>
+    </details>
 
   </section>
 
   <!-- STEP 2: review & approve -->
   <section id="review" class="hide">
     <div class="rotate">↻ Turn your phone sideways to see the full list next to the form.</div>
-    <div class="banner" style="font-size:18px;border-color:var(--brand)">
-      <b>Step 2 — Approve each one.</b><br>
-      Look over every item below and tap its green <b>✓ Approve</b> button. The <b>Generate ›</b> button at the bottom unlocks once <b>all</b> of them are approved.
+    <div class="banner" style="font-size:17px;border-color:var(--brand)">
+      <b>Check each one and tap ✓ Approve.</b> The <b>Generate ›</b> button unlocks once all are approved.
     </div>
     <div id="approveTally" class="warnbox" style="font-size:17px"></div>
     <div class="reviewgrid">
@@ -288,7 +281,7 @@
 
   <!-- STEP 3: output -->
   <section id="output" class="hide">
-    <div class="banner">④ <b>Your list is ready.</b> First, save your list to your phone (it isn't stored here). Then turn on your reminders below.</div>
+    <div class="banner" style="font-size:17px;border-color:var(--brand)"><b>Your list is ready.</b> Save a copy, then turn on your reminders below.</div>
 
     <!-- Big, simple reminders card — designed to be usable by someone not tech-comfortable -->
     <div class="card" id="reminderCard" style="border:2px solid var(--brand)">
