@@ -78,12 +78,12 @@
   <h2>Part 2 — Privacy Notice</h2>
 
   <h3>1. The short version</h3>
-  <p><b>This tool is designed to collect and store nothing about you.</b> Everything you enter is processed on your own device, in your browser, and is erased when you close or refresh the page. We do not operate a server that receives your medication information.</p>
+  <p><b>This tool is designed to store nothing about you.</b> Your medication list is processed on your own device, in your browser, and is erased when you close or refresh the page. The only time anything leaves your device is the optional label scan: if you choose to scan a label, that photo is sent over an encrypted connection to our reader, used only to extract the medication fields, and then discarded — we do not keep it. We do not operate a database that stores your medication list.</p>
 
   <h3>2. What we do and don't collect</h3>
   <ul>
     <li><b>Medication information you enter:</b> kept only in your device's memory during your session; never transmitted to us; erased when the page closes.</li>
-    <li><b>Label photos:</b> read on your device (on-device OCR) and never uploaded. <span class="muted">[Note: the OCR engine library may load from a third-party content-delivery network; the image itself is not sent.]</span></li>
+    <li><b>Label photos (only if you scan):</b> the photo is shrunk on your device, sent over an encrypted connection to our reader service (hosted on Cloudflare, read by Anthropic's Claude), used only to extract the medication fields, and then discarded. The photo is not stored and is not used to train any model. If you never scan a label, no photo is ever sent.</li>
     <li><b>No accounts, no cookies for tracking, no advertising identifiers.</b></li>
     <li><b>We do not sell, rent, or share your health information</b> with anyone.</li>
   </ul>

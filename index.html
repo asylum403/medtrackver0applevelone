@@ -9,7 +9,8 @@
   MedTrack v0 (prototype). PRIVACY BY DESIGN:
   - Stores NOTHING. No server, no account, no cookies, no localStorage.
   - Everything lives in memory only; closing/refreshing this page erases it.
-  - The label photo is processed ON THIS DEVICE (Tesseract.js / WASM) and is never uploaded.
+  - To read a label, the photo is sent over an encrypted connection to our reader (Cloudflare + Claude),
+    used only to extract the medication fields, and then discarded — it is never stored.
   - The user's saved copy lives in THEIR notes/messages/files — not with us.
   NOT MEDICAL ADVICE. This is an organizer for information the user provides/confirms.
 -->
@@ -116,7 +117,7 @@
 <div class="wrap">
 
   <div class="banner">
-    🔒 <b>Nothing is saved here.</b> Everything stays on this device, in this page only — close or refresh and it's erased. Your photo is read on your phone and never uploaded. <br>
+    🔒 <b>Nothing is saved here.</b> Your medication list stays on this device, in this page only — close or refresh and it's erased. When you scan a label, the photo is sent securely to be read, then discarded — never stored. <br>
     ⚠️ <b>Not medical advice.</b> This tool only organizes information you enter and confirm. Always follow your prescriber's and pharmacist's instructions.
     <div style="margin-top:8px"><b>To keep your list:</b> when you're done, copy or download it into your phone's Notes/Messages/Files. Next time, paste it back to pick up where you left off.</div>
   </div>
@@ -143,19 +144,7 @@
       </div>
       <div id="scanStatus"></div>
 
-      <!-- guided box scanner: one photo, reposition a labeled box over each field, OCR just that crop -->
-      <div id="scanStage" class="hide" style="margin-top:12px">
-        <div id="scanPrompt" class="banner" style="margin-bottom:8px"></div>
-        <div style="text-align:center">
-          <canvas id="scanCanvas" style="max-width:100%;touch-action:none;border:1px solid var(--line);border-radius:8px"></canvas>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <button class="good" onclick="captureField()">✓ Capture &amp; next</button>
-          <button class="ghost" onclick="skipField()">Skip this field →</button>
-          <button class="ghost" onclick="cancelScan()">Cancel scan</button>
-        </div>
-        <div id="scanSub" class="muted" style="font-size:13px;margin-top:6px">Drag inside the box to move it · drag the bottom-right corner to resize.</div>
-      </div>
+      <!-- label scan: one photo → secure cloud reader → fields below fill in -->
 
       <!-- the pre-filled confirm form -->
       <div id="medForm" class="hide" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
@@ -179,6 +168,7 @@
         <input id="f_times" placeholder="8:00 AM, 2:00 PM" style="margin-top:8px">
         <div class="row">
           <div class="col" style="flex:0 1 130px"><label class="f">Count on hand</label><input id="f_count" type="number" min="0" placeholder="30"></div>
+          <div class="col" style="flex:0 1 120px"><label class="f">Refills left</label><input id="f_refills" type="number" min="0" placeholder="0"></div>
           <div class="col" style="flex:0 1 150px"><label class="f">Doses per day</label><input id="f_perday" type="number" min="0" step="0.5" placeholder="auto from times"></div>
           <div class="col" style="flex:0 1 160px"><label class="f">Refill buffer (days)</label><input id="f_buffer" type="number" min="0" value="7"></div>
         </div>
@@ -270,7 +260,6 @@
   MedTrack v0 prototype · Stores nothing · Not medical advice · <a href="legal.html">Terms &amp; Privacy</a> · © <span id="yr"></span> — all rights reserved.
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 /* ===== In-memory state ONLY. Nothing is persisted anywhere. ===== */
 let meds = [];          // {id,name,strength,form,dir,times[],count,perDay,buffer,rx,pharm,stopped,approved}
@@ -306,7 +295,7 @@ function matchExisting(name, strength, exceptId){
 function showForm(){ $('medForm').classList.remove('hide'); }
 function hideForm(){ $('medForm').classList.add('hide'); clearForm(); }
 function clearForm(){
-  ['f_name','f_strength','f_dir','f_times','f_count','f_perday','f_rx','f_pharm'].forEach(i=>$(i).value='');
+  ['f_name','f_strength','f_dir','f_times','f_count','f_refills','f_perday','f_rx','f_pharm'].forEach(i=>$(i).value='');
   $('f_form').value=''; $('f_buffer').value='7'; presetTimes=[]; editId=null;
   document.querySelectorAll('#presets .pill').forEach(p=>p.classList.remove('on'));
   $('ocrRaw').classList.add('hide'); $('ocrRaw').textContent='';
@@ -330,6 +319,7 @@ function confirmMed(){
     name, strength:$('f_strength').value.trim(), form:$('f_form').value,
     dir:$('f_dir').value.trim(), times,
     count: parseFloat($('f_count').value)||0,
+    refills: $('f_refills').value.trim(),
     perDay: parseFloat($('f_perday').value)||0,
     buffer: parseFloat($('f_buffer').value)||0,
     rx:$('f_rx').value.trim(), pharm:$('f_pharm').value.trim(),
@@ -364,7 +354,7 @@ function editMed(id){
   editId=id;
   $('f_name').value=m.name; $('f_strength').value=m.strength; $('f_form').value=m.form||'';
   $('f_dir').value=m.dir||''; $('f_times').value=(m.times||[]).join(', ');
-  $('f_count').value=m.count||''; $('f_perday').value=m.perDay||''; $('f_buffer').value=m.buffer||0;
+  $('f_count').value=m.count||''; $('f_refills').value=m.refills||''; $('f_perday').value=m.perDay||''; $('f_buffer').value=m.buffer||0;
   $('f_rx').value=m.rx||''; $('f_pharm').value=m.pharm||'';
   presetTimes = (m.times||[]).filter(isPreset);
   document.querySelectorAll('#presets .pill').forEach(p=>{ p.classList.toggle('on', presetTimes.includes(p.textContent.replace(/^[^0-9]*/,''))); });
@@ -390,7 +380,7 @@ function renderList(){
         <div class="meta">
           ${m.times.length?`Take at: ${esc(m.times.join(', '))}<br>`:''}
           ${m.dir?`${esc(m.dir)}<br>`:''}
-          ${m.count?`Count: ${m.count}`:''}${rd?` · Refill reminder: ${fmtDate(rd)}`:''}
+          ${m.count?`Count: ${m.count}`:''}${m.refills?` · Refills left: ${esc(m.refills)}`:''}${rd?` · Refill reminder: ${fmtDate(rd)}`:''}
           ${m.rx||m.pharm?`<br>${esc(m.rx?('Rx# '+m.rx):'')}${m.rx&&m.pharm?' · ':''}${esc(m.pharm||'')}`:''}
         </div>
         <div class="row" style="margin-top:8px">
@@ -409,139 +399,73 @@ function showChanges(html){
   setTimeout(()=>c.classList.add('hide'), 6000);
 }
 
-/* ---------- Guided box scanner (on-device) ----------
-   One photo, then the user drags a labeled box over each field in turn. We OCR
-   only the cropped region and tell Tesseract what kind of text to expect, which
-   is far more reliable than parsing the whole varied label. Nothing is uploaded. */
-
-// The fields we walk through, in order. psm = Tesseract page-seg mode
-// (7 = single line, 6 = block). whitelist limits the characters OCR may return.
-const SCAN_FIELDS = [
-  {key:'f_name',     title:'Drug Name',  psm:'7', clean:t=>t.replace(/[^a-z0-9 \-]/gi,' ').replace(/\s+/g,' ').trim()},
-  {key:'f_strength', title:'Dose / Strength', psm:'7', whitelist:'0123456789.,mcgMLUuntisNITS ',
-     clean:t=>{ const m=t.match(/\d+(?:\.\d+)?\s?(?:mg|mcg|ml|units?)/i); return m?m[0].replace(/\s+/,' ').trim():t.replace(/\s+/g,' ').trim(); }},
-  {key:'f_dir',      title:'Directions', psm:'6', clean:t=>t.replace(/\s+/g,' ').trim()},
-  {key:'f_rx',       title:'Rx # (optional)', psm:'7', whitelist:'0123456789-RXrx# ',
-     clean:t=>t.replace(/[^0-9\-]/g,'').trim()},
-];
-
-let scanImg=null;      // full-res Image for cropping
-let scanIdx=0;         // which field we're on
-let box=null;          // selection rect in CANVAS-buffer coords {x,y,w,h}
-let drag=null;         // active gesture: {mode:'move'|'resize', ...}
+/* ---------- Label scanner (photo → secure cloud reader) ----------
+   Take ONE photo. We shrink it on-device, send it to our Cloudflare Worker,
+   which asks Claude to read the label and returns the fields as JSON. The image
+   is read and discarded — never stored. One tap, no boxes, no typing. */
+const WORKER_URL = 'https://medtrack-ocr.tommygordon103.workers.dev/';
 
 function runOCR(ev){
   const file = ev.target.files && ev.target.files[0]; if(!file){ return; }
-  const img = new Image();
-  img.onload = ()=>{
-    URL.revokeObjectURL(img.src);
-    scanImg = img;
-    const cv = $('scanCanvas');
-    const w = Math.min(img.naturalWidth, 900);           // cap drawing buffer width
-    cv.width = w; cv.height = Math.round(img.naturalHeight * (w/img.naturalWidth));
-    // start with a box over the top-center (where the drug name usually is)
-    box = {x:Math.round(cv.width*0.1), y:Math.round(cv.height*0.08),
-           w:Math.round(cv.width*0.8), h:Math.round(cv.height*0.12)};
-    attachCanvasHandlers(cv);
-    showForm();
-    $('scanStage').classList.remove('hide');
-    scanIdx = 0; startField();
-  };
-  img.onerror = ()=>{ $('scanStatus').textContent='Could not open that photo — please add the details manually.'; };
-  img.src = URL.createObjectURL(file);
+  scanLabel(file);
   ev.target.value=''; // never keep the file input contents
 }
 
-function startField(){
-  const f = SCAN_FIELDS[scanIdx];
-  $('scanPrompt').innerHTML = `Step ${scanIdx+1} of ${SCAN_FIELDS.length}: drag the box over the <b>${f.title}</b>, then tap <b>Capture &amp; next</b>.`;
-  drawScan();
-}
-
-function drawScan(label){
-  const cv=$('scanCanvas'), ctx=cv.getContext('2d');
-  ctx.drawImage(scanImg,0,0,cv.width,cv.height);
-  if(!box) return;
-  ctx.save();
-  // dim everything outside the box so the target text stands out
-  ctx.fillStyle='rgba(0,0,0,0.45)';
-  ctx.fillRect(0,0,cv.width,box.y);
-  ctx.fillRect(0,box.y+box.h,cv.width,cv.height-(box.y+box.h));
-  ctx.fillRect(0,box.y,box.x,box.h);
-  ctx.fillRect(box.x+box.w,box.y,cv.width-(box.x+box.w),box.h);
-  // box border + handle
-  ctx.lineWidth=3; ctx.strokeStyle='#2ec28a'; ctx.strokeRect(box.x,box.y,box.w,box.h);
-  ctx.fillStyle='#2ec28a'; ctx.fillRect(box.x+box.w-14,box.y+box.h-14,14,14);
-  // field title tag
-  const tag=label||SCAN_FIELDS[scanIdx].title;
-  ctx.font='bold 16px sans-serif'; const tw=ctx.measureText(tag).width;
-  ctx.fillStyle='#2ec28a'; ctx.fillRect(box.x,Math.max(0,box.y-22),tw+12,22);
-  ctx.fillStyle='#04201a'; ctx.fillText(tag,box.x+6,Math.max(13,box.y-6));
-  ctx.restore();
-}
-
-function attachCanvasHandlers(cv){
-  if(cv._wired) return; cv._wired=true;
-  const pt=e=>{ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)*(cv.width/r.width), y:(e.clientY-r.top)*(cv.height/r.height)}; };
-  cv.addEventListener('pointerdown',e=>{
-    e.preventDefault(); cv.setPointerCapture(e.pointerId); const p=pt(e);
-    const nearHandle = Math.abs(p.x-(box.x+box.w))<22 && Math.abs(p.y-(box.y+box.h))<22;
-    if(nearHandle) drag={mode:'resize'};
-    else if(p.x>=box.x&&p.x<=box.x+box.w&&p.y>=box.y&&p.y<=box.y+box.h) drag={mode:'move',dx:p.x-box.x,dy:p.y-box.y};
-    else drag={mode:'new',ox:p.x,oy:p.y}, box={x:p.x,y:p.y,w:1,h:1};
-  });
-  cv.addEventListener('pointermove',e=>{
-    if(!drag) return; e.preventDefault(); const p=pt(e);
-    if(drag.mode==='move'){ box.x=Math.max(0,Math.min(cv.width-box.w,p.x-drag.dx)); box.y=Math.max(0,Math.min(cv.height-box.h,p.y-drag.dy)); }
-    else if(drag.mode==='resize'){ box.w=Math.max(20,Math.min(cv.width-box.x,p.x-box.x)); box.h=Math.max(16,Math.min(cv.height-box.y,p.y-box.y)); }
-    else { box.x=Math.min(drag.ox,p.x); box.y=Math.min(drag.oy,p.y); box.w=Math.abs(p.x-drag.ox); box.h=Math.abs(p.y-drag.oy); }
-    drawScan();
-  });
-  cv.addEventListener('pointerup',()=>{ drag=null; });
-  cv.addEventListener('pointercancel',()=>{ drag=null; });
-}
-
-// Crop the box region from the FULL-RES image, upscale + grayscale, then OCR it.
-async function captureField(){
-  if(!box || box.w<8 || box.h<8){ $('scanSub').textContent='Draw a box over the text first.'; return; }
-  const f=SCAN_FIELDS[scanIdx]; const cv=$('scanCanvas');
-  const rx=scanImg.naturalWidth/cv.width, ry=scanImg.naturalHeight/cv.height;
-  const sx=box.x*rx, sy=box.y*ry, sw=box.w*rx, sh=box.h*ry;
-  const up=Math.max(1,Math.min(4, 70/sh));            // aim for ~70px tall, capped
-  const crop=document.createElement('canvas');
-  crop.width=Math.round(sw*up); crop.height=Math.round(sh*up);
-  const cctx=crop.getContext('2d');
-  cctx.drawImage(scanImg, sx,sy,sw,sh, 0,0, crop.width,crop.height);
-  const id=cctx.getImageData(0,0,crop.width,crop.height), d=id.data;
-  for(let i=0;i<d.length;i+=4){ const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]; d[i]=d[i+1]=d[i+2]=g; }
-  cctx.putImageData(id,0,0);
-
-  $('scanSub').textContent='Reading the highlighted area…';
-  drawScan('Reading…');
+async function scanLabel(file){
+  showForm();
+  $('scanStatus').textContent='📷 Reading your label… this takes a few seconds.';
   try{
-    const opts={tessedit_pageseg_mode:f.psm}; if(f.whitelist) opts.tessedit_char_whitelist=f.whitelist;
-    const { data } = await Tesseract.recognize(crop,'eng',opts);
-    const val=f.clean((data.text||'').trim());
-    if(val){ $(f.key).value=val; $('scanSub').textContent=`${f.title}: “${val}” — fix it below if it's off.`; }
-    else { $('scanSub').textContent=`Couldn't read the ${f.title}. Try a tighter box, or Skip and type it.`; }
-  }catch(e){ $('scanSub').textContent='OCR failed on that crop — type it in below.'; }
-  advanceField();
-}
-
-function skipField(){ advanceField(); }
-
-function advanceField(){
-  scanIdx++;
-  if(scanIdx>=SCAN_FIELDS.length){
-    $('scanStage').classList.add('hide');
-    $('scanStatus').textContent='✓ Done scanning. Check every field below, fix anything off, then Confirm.';
-    scanImg=null; box=null;
-    return;
+    const image_base64 = await shrinkToJpeg(file);    // shrink on-device before sending
+    const resp = await fetch(WORKER_URL, {
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body: JSON.stringify({ image_base64, media_type:'image/jpeg' })
+    });
+    if(!resp.ok){ const e=await resp.json().catch(()=>({})); throw new Error(e.error||('reader error '+resp.status)); }
+    fillFromScan(await resp.json());
+    $('scanStatus').textContent='✓ Read it. Please check every field below, fix anything that\'s off, then Confirm.';
+  }catch(err){
+    $('scanStatus').textContent='Couldn\'t read it automatically — please type the details in below. ('+(err.message||'error')+')';
   }
-  startField();
 }
 
-function cancelScan(){ $('scanStage').classList.add('hide'); scanImg=null; box=null; scanIdx=0; }
+// Shrink + re-encode as JPEG so the upload is small and EXIF/location data is dropped.
+function shrinkToJpeg(file, maxDim=1600, quality=0.85){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{
+      URL.revokeObjectURL(img.src);
+      const scale=Math.min(1, maxDim/Math.max(img.naturalWidth, img.naturalHeight));
+      const c=document.createElement('canvas');
+      c.width=Math.round(img.naturalWidth*scale); c.height=Math.round(img.naturalHeight*scale);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      resolve(c.toDataURL('image/jpeg', quality).split(',')[1]);
+    };
+    img.onerror=()=>reject(new Error('could not open photo'));
+    img.src=URL.createObjectURL(file);
+  });
+}
+
+// Drop the returned fields into the form. Blank values are left blank for the user.
+function fillFromScan(f){
+  if(f.name) $('f_name').value=f.name;
+  if(f.strength) $('f_strength').value=f.strength;
+  if(f.form) setFormSelect(f.form);
+  if(f.directions) $('f_dir').value=f.directions;
+  if(f.quantity) $('f_count').value=(String(f.quantity).match(/\d+(?:\.\d+)?/)||[''])[0];
+  if(f.refills!=='' && f.refills!=null) $('f_refills').value=(String(f.refills).match(/\d+/)||[''])[0];
+  if(f.rx_number) $('f_rx').value=String(f.rx_number).replace(/[^0-9\-]/g,'');
+}
+
+// Match the read form word to one of the dropdown's options.
+function setFormSelect(form){
+  const v=String(form).toLowerCase().trim(); if(!v) return;
+  const map={tablet:'tablet',tab:'tablet',tabs:'tablet',capsule:'capsule',cap:'capsule',caps:'capsule',
+    liquid:'liquid',solution:'liquid',suspension:'liquid',syrup:'liquid',inhaler:'inhaler',
+    drops:'drops',drop:'drops',topical:'topical',cream:'topical',ointment:'topical',gel:'topical',
+    patch:'topical',injection:'injection',injectable:'injection'};
+  $('f_form').value = map[v] || (['tablet','capsule','liquid','inhaler','drops','topical','injection'].includes(v)?v:'other');
+}
 
 /* ---------- paste-in / re-import ---------- */
 function loadPasted(){
@@ -575,7 +499,7 @@ function parseDoc(txt){
       const form = (head.match(/\(([^)]+)\)\s*$/)||[])[1]||'';
       head = head.replace(/\(([^)]+)\)\s*$/,'').trim();
       const sm = head.match(/(.+?)\s+(\d+(?:\.\d+)?\s?(?:mg|mcg|g|ml|units?))\s*$/i);
-      cur = {name:'',strength:'',form:form,dir:'',times:[],count:0,perDay:0,buffer:7,rx:'',pharm:'',stopped:/stopped/i.test(line),approved:false};
+      cur = {name:'',strength:'',form:form,dir:'',times:[],count:0,refills:'',perDay:0,buffer:7,rx:'',pharm:'',stopped:/stopped/i.test(line),approved:false};
       if(sm){ cur.name=sm[1].trim(); cur.strength=sm[2].trim(); } else { cur.name=head; }
       continue;
     }
@@ -584,6 +508,7 @@ function parseDoc(txt){
     if(m=line.match(/take at:\s*(.+)/i)) cur.times = m[1].split(',').map(s=>s.trim()).filter(Boolean);
     else if(m=line.match(/directions:\s*(.+)/i)) cur.dir=m[1].trim();
     else if(m=line.match(/count:\s*(\d+(?:\.\d+)?)/i)) cur.count=parseFloat(m[1]);
+    else if(m=line.match(/refills left:\s*(\d+)/i)) cur.refills=m[1];
     else if(m=line.match(/doses per day:\s*(\d+(?:\.\d+)?)/i)) cur.perDay=parseFloat(m[1]);
     else if(m=line.match(/rx#\s*([^\s·|]+)/i)) cur.rx=m[1].trim();
     else if(m=line.match(/·\s*(.+pharmac.+|.+\bRx\b.+)/i)) {}
@@ -660,6 +585,7 @@ function buildDocText(){
     if(m.times.length) s += `   Take at: ${m.times.join(', ')}\n`;
     if(m.dir) s += `   Directions: ${m.dir}\n`;
     if(m.count) s += `   Count: ${m.count} (as of ${fmtDate(today)})\n`;
+    if(m.refills) s += `   Refills left: ${m.refills}\n`;
     const dpd=dosesPerDay(m); if(dpd) s += `   Doses per day: ${dpd}\n`;
     if(rd) s += `   Refill reminder: ${fmtDate(rd)}\n`;
     if(m.rx) s += `   Rx# ${m.rx}${m.pharm?' · '+m.pharm:''}\n`;
