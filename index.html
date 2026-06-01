@@ -4,9 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="robots" content="noindex, nofollow" />
-<title>PillPal — Medications & Supplements Reminder Helper</title>
+<title>Pill Pal — Medications & Supplements Reminder Helper</title>
 <!--
-  PillPal v0 (prototype). PRIVACY BY DESIGN:
+  Pill Pal v0 (prototype). PRIVACY BY DESIGN:
   - Stores NOTHING. No server, no account, no cookies, no localStorage.
   - Everything lives in memory only; closing/refreshing this page erases it.
   - To read a label, the photo is sent over an encrypted connection to our reader (Cloudflare + Claude),
@@ -135,7 +135,7 @@
 </div>
 
 <header>
-  <h1>💊 PillPal <span class="muted" style="font-size:13px">v0 prototype</span></h1>
+  <h1 style="font-size:28px;font-weight:800;letter-spacing:-.5px;margin:0 0 2px">Pill <span style="color:var(--brand)">Pal</span></h1>
   <div class="sub">Keep a clean list of your medications &amp; supplements — with reminder times &amp; refill dates, privately.</div>
 </header>
 
@@ -158,21 +158,21 @@
       <h2>Add a medication or supplement</h2>
       <p class="muted" style="margin:.1em 0 .9em;font-size:16px">Add each one you take. You'll review them and turn on reminders next.</p>
       <div class="row">
-        <button class="primary" style="flex:1 1 160px" onclick="document.getElementById('photo').click()">📷 Scan a label</button>
+        <button class="primary" style="flex:1 1 160px" onclick="document.getElementById('photo').click()">📷 Take a photo of the label</button>
         <input id="photo" type="file" accept="image/*" capture="environment" class="hide" onchange="runOCR(event)">
         <button class="ghost" style="flex:1 1 160px" onclick="showForm()">✍️ Type it in</button>
       </div>
-      <div class="muted" style="font-size:15px;margin-top:6px">📶 Photo scan needs an internet connection — <b>Wi-Fi works best</b> (faster, and no mobile data). Typing by hand always works offline.</div>
+      <div class="muted" style="font-size:15px;margin-top:6px">📶 Taking a photo needs an internet connection — <b>Wi-Fi works best</b> (faster, no mobile data). Typing it in by hand always works offline.</div>
       <div id="scanStatus"></div>
 
       <details class="more" style="margin-top:8px">
-        <summary>📸 How to get the best scan</summary>
+        <summary>📸 How to take a clear photo</summary>
         <ul style="margin:8px 0 0;padding-left:22px;font-size:16px;line-height:1.65">
-          <li><b>Have the pharmacy paperwork?</b> Scan the printed info sheet that came with your prescription — flat paper reads much better than a curved bottle.</li>
-          <li><b>Fill the frame</b> with just the label or sheet, and hold the phone steady until the text looks sharp.</li>
-          <li><b>Good, even light.</b> Avoid glare, and don't let the camera flash wash out the words.</li>
-          <li><b>Lay it flat / face-on.</b> Flatten the paper, or turn a bottle so the label faces you straight on.</li>
-          <li><b>One medication or supplement at a time.</b></li>
+          <li><b>Use the paper sheet if you have it.</b> Photograph the printed information sheet from your pharmacy — flat paper comes out clearer than a rounded bottle.</li>
+          <li><b>Get close and hold steady</b> so the label fills the screen and the words look sharp before you tap.</li>
+          <li><b>Use good light, avoid glare.</b> Turn the camera flash off if it washes out the words.</li>
+          <li><b>Keep it flat and straight on</b> — flatten the paper, or turn the bottle so the label faces you.</li>
+          <li><b>One medication or supplement per photo.</b></li>
         </ul>
       </details>
 
@@ -255,13 +255,13 @@
 
     <div class="card" id="listCard">
       <h2>Your list (<span id="count">0</span>)</h2>
-      <div id="list"><p class="muted">Nothing yet — tap “Scan a label” or “Type it in” above to start.</p></div>
+      <div id="list"><p class="muted">Nothing yet — tap “Take a photo of the label” or “Type it in” above to start.</p></div>
     </div>
 
     <details class="more" style="margin-top:4px">
       <summary>Returning? Restore a saved list</summary>
       <p class="muted" style="margin:.4em 0 .6em;font-size:15px">Paste the list you saved last time and we'll rebuild it.</p>
-      <textarea id="pasteIn" placeholder="Paste your saved PillPal list here…"></textarea>
+      <textarea id="pasteIn" placeholder="Paste your saved Pill Pal list here…"></textarea>
       <div class="row" style="margin-top:10px">
         <button class="primary" onclick="loadPasted()">Load my list</button>
         <span id="loadMsg" class="muted"></span>
@@ -338,7 +338,7 @@
 </div>
 
 <footer>
-  PillPal v0 prototype · Stores nothing · Not medical advice · <a href="legal.html">Terms &amp; Privacy</a> · © <span id="yr"></span> — all rights reserved.
+  Pill Pal · Not medical advice · <a href="legal.html">Terms &amp; Privacy</a> · © <span id="yr"></span> BBO Holdings, LLC — all rights reserved.
 </footer>
 
 <script>
@@ -503,7 +503,7 @@ function esc(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>'
 function renderList(){
   $('count').textContent = meds.length;
   const el = $('list');
-  if(!meds.length){ el.innerHTML='<p class="muted">No medications yet. Scan a label or add one manually above.</p>'; }
+  if(!meds.length){ el.innerHTML='<p class="muted">Nothing here yet — take a photo of a label, or type one in above.</p>'; }
   else{
     el.innerHTML = meds.map(m=>{
       const rd = refillDate(m);
@@ -550,10 +550,10 @@ function runOCR(ev){
 async function scanLabel(file){
   showForm();
   if(navigator.onLine===false){
-    $('scanStatus').textContent='📶 You appear to be offline. Photo scan needs an internet connection (Wi-Fi works best). Please type the details in below, or try again once you\'re connected.';
+    $('scanStatus').textContent='📶 You appear to be offline. Taking a photo of a label needs an internet connection (Wi-Fi works best). Please type the details in below, or try again once you\'re connected.';
     return;
   }
-  $('scanStatus').textContent='📷 Reading your label… this takes a few seconds.';
+  $('scanStatus').textContent='📷 Reading your photo… this takes a few seconds.';
   try{
     const image_base64 = await shrinkToJpeg(file);    // shrink on-device before sending
     const resp = await fetch(WORKER_URL, {
@@ -563,7 +563,7 @@ async function scanLabel(file){
     });
     if(!resp.ok){ const e=await resp.json().catch(()=>({})); throw new Error(e.error||('reader error '+resp.status)); }
     fillFromScan(await resp.json());
-    $('scanStatus').textContent='✓ Read it. Please check every field below, fix anything that\'s off, then Confirm.';
+    $('scanStatus').textContent='✓ Got it. Please check every field below, fix anything that\'s off, then tap Save.';
   }catch(err){
     $('scanStatus').textContent='Couldn\'t read it automatically — please type the details in below. ('+(err.message||'error')+')';
   }
@@ -665,7 +665,7 @@ function loadPasted(){
   const txt = $('pasteIn').value;
   if(!txt.trim()){ $('loadMsg').textContent='Paste your saved list first.'; return; }
   const parsed = parseDoc(txt);
-  if(!parsed.length){ $('loadMsg').textContent='Couldn\'t find medications in that text — check it\'s a PillPal list.'; return; }
+  if(!parsed.length){ $('loadMsg').textContent='Couldn\'t find medications in that text — check it\'s a Pill Pal list.'; return; }
   let added=0, updated=0;
   parsed.forEach(p=>{
     const ex = matchExisting(p.name,p.strength);
@@ -674,7 +674,7 @@ function loadPasted(){
   });
   $('pasteIn').value='';
   $('loadMsg').textContent='';
-  showChanges(`Loaded your list: ${added} added${updated?`, ${updated} updated`:''}. Now scan or add anything new.`);
+  showChanges(`Loaded your list: ${added} added${updated?`, ${updated} updated`:''}. Now add anything new.`);
   renderList();
   window.scrollTo({top:document.getElementById('listCard').offsetTop-70,behavior:'smooth'});
 }
@@ -802,7 +802,7 @@ function buildDocText(){
   const refills = active.map(m=>({m,rd:refillDate(m)})).filter(x=>x.rd).sort((a,b)=>a.rd-b.rd);
   if(refills.length){ s += `─── REFILL REMINDERS (set a calendar alert) ───\n`; refills.forEach(x=>s+=` ${fmtDate(x.rd)} — ${x.m.name}\n`); s+=`\n`; }
 
-  s += `(Created with PillPal v0 — this tool stores nothing. Keep your own copy.)\n`;
+  s += `(Created with Pill Pal — this tool stores nothing. Keep your own copy.)\n`;
   return s;
 }
 function generateDoc(){
@@ -841,7 +841,7 @@ function to24(t){ // "8:00 AM" -> {h,m}
 }
 function downloadICS(){
   const discreet = $('icsPrivate') ? $('icsPrivate').checked : true;
-  const today=new Date(); let ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//PillPal v0//EN\r\nCALSCALE:GREGORIAN\r\n';
+  const today=new Date(); let ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Pill Pal//EN\r\nCALSCALE:GREGORIAN\r\n';
   const stamp = today.getFullYear()+pad(today.getMonth()+1)+pad(today.getDate())+'T000000';
   meds.filter(m=>!m.stopped).forEach((m,i)=>{
     const nameStr = icsSafe(m.name)+(m.strength?(' '+icsSafe(m.strength)):'');
