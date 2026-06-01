@@ -16,96 +16,100 @@
 -->
 <style>
   :root{
-    --bg:#0f1419; --panel:#1a2230; --panel2:#222c3c; --ink:#e8eef6; --muted:#9fb0c3;
-    --line:#2c3a4e; --brand:#3aa0ff; --good:#36c08a; --warn:#f2b14c; --bad:#f0685f;
-    --radius:14px;
+    --bg:#eef2f7; --panel:#ffffff; --panel2:#f3f6fa; --ink:#1d2a39; --muted:#5e6e7e;
+    --line:#dbe3ec; --brand:#2f6fed; --good:#1f9d63; --warn:#b06a12; --bad:#d2483d;
+    --radius:16px; --shadow:0 1px 2px rgba(16,40,70,.04), 0 3px 10px rgba(16,40,70,.06);
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--ink);
     font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:18px;line-height:1.55}
-  a{color:var(--brand)}
-  header{padding:16px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:30}
-  header h1{font-size:20px;margin:0 0 2px}
-  header .sub{color:var(--muted);font-size:13px}
-  .wrap{max-width:1100px;margin:0 auto;padding:16px 18px 120px}
-  .banner{background:#10202c;border:1px solid #1d3a4a;border-radius:var(--radius);
-    padding:14px 16px;margin:14px 0;font-size:16px;color:#bfe0f5}
-  .banner b{color:#dff1ff}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin:16px 0}
-  .card h2{margin:0 0 12px;font-size:20px}
+  a{color:var(--brand);font-weight:600}
+  header{padding:16px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:30}
+  header h1{font-size:22px;margin:0 0 2px}
+  header .sub{color:var(--muted);font-size:14px}
+  .wrap{max-width:680px;margin:0 auto;padding:14px 16px 132px}
+  .banner{background:#e9f1fe;border:1px solid #cfe0fb;border-radius:14px;
+    padding:14px 16px;margin:14px 0;font-size:16px;color:#2a4a72}
+  .banner b{color:#163a63}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:22px;margin:18px 0;box-shadow:var(--shadow)}
+  .card h2{margin:0 0 6px;font-size:21px;font-weight:700}
   .row{display:flex;gap:12px;flex-wrap:wrap}
-  label.f{display:block;font-size:15px;font-weight:600;color:var(--muted);margin:14px 0 5px}
+  label.f{display:block;font-size:15px;font-weight:600;color:var(--ink);margin:14px 0 6px}
   input,select,textarea,button{font:inherit}
-  input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);
+  input,select,textarea{width:100%;background:#fff;border:1.5px solid var(--line);
     color:var(--ink);border-radius:12px;padding:14px 14px;font-size:19px}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(47,111,237,.15)}
   textarea{min-height:90px;resize:vertical}
   .col{flex:1 1 160px;min-width:140px}
-  button{cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--ink);
-    border-radius:12px;padding:15px 20px;font-weight:600;font-size:19px;min-height:54px}
+  button{cursor:pointer;border:1.5px solid var(--line);background:#fff;color:var(--ink);
+    border-radius:12px;padding:15px 20px;font-weight:700;font-size:19px;min-height:54px}
   button:hover{border-color:var(--brand)}
-  button.primary{background:var(--brand);border-color:var(--brand);color:#06243f}
-  button.good{background:var(--good);border-color:var(--good);color:#04261a}
-  button.ghost{background:transparent}
-  button:disabled{opacity:.45;cursor:not-allowed}
-  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);
-    border-radius:999px;padding:11px 16px;margin:6px 8px 0 0;font-size:17px;cursor:pointer}
-  .pill.on{background:var(--brand);border-color:var(--brand);color:#06243f}
+  button.primary{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:var(--shadow)}
+  button.good{background:var(--good);border-color:var(--good);color:#fff}
+  button.ghost{background:#fff;color:var(--brand);border-color:var(--line)}
+  button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+  .pill{display:inline-block;background:#fff;border:1.5px solid var(--line);
+    border-radius:999px;padding:11px 18px;margin:6px 8px 0 0;font-size:17px;font-weight:600;cursor:pointer}
+  .pill.on{background:var(--brand);border-color:var(--brand);color:#fff}
   .muted{color:var(--muted)}
-  .med{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:var(--panel2)}
-  .med h3{margin:0 0 4px;font-size:16px}
-  .med .meta{font-size:14px;color:var(--muted)}
-  .tag{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line)}
-  .tag.dupe{color:#3a2410;background:var(--warn);border-color:var(--warn)}
-  .tag.ok{color:#04261a;background:var(--good);border-color:var(--good)}
+  .grouphd{font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);margin:22px 0 2px}
+  .med{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:12px 0;background:#fff;box-shadow:var(--shadow)}
+  .med h3{margin:0 0 4px;font-size:18px}
+  .med .meta{font-size:15px;color:var(--muted)}
+  .tag{font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);font-weight:600}
+  .tag.dupe{color:#7a4a0f;background:#fdeccf;border-color:#f0d6a4}
+  .tag.ok{color:#0f6b43;background:#dff3e8;border-color:#bce6cf}
   .tag.stop{color:var(--muted)}
   .hide{display:none!important}
   .reviewgrid{display:grid;grid-template-columns:1fr 300px;gap:16px}
   .roster{position:sticky;top:88px;align-self:start;max-height:75vh;overflow:auto}
   .roster .item{display:flex;justify-content:space-between;align-items:center;gap:8px;
-    padding:8px 10px;border-bottom:1px solid var(--line);font-size:14px}
+    padding:10px 12px;border-bottom:1px solid var(--line);font-size:15px}
   .rotate{display:none}
-  .changes{background:#102619;border:1px solid #1c4631;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:15px;color:#bfeed4}
-  .warnbox{background:#2a1f0c;border:1px solid #5a4520;color:#f4d79a;border-radius:10px;padding:11px 13px;margin:8px 0;font-size:16px}
-  details.more{margin:6px 0 2px;border-top:1px solid var(--line);padding-top:10px}
-  details.more>summary{cursor:pointer;color:var(--brand);font-size:17px;font-weight:600;padding:8px 0;list-style:revert}
+  .changes{background:#e7f6ee;border:1px solid #bfe6cf;border-radius:12px;padding:11px 14px;margin:10px 0;font-size:15px;color:#14663f}
+  .warnbox{background:#fdf3e0;border:1px solid #f0d8a8;color:#8a5712;border-radius:12px;padding:12px 14px;margin:8px 0;font-size:16px}
+  details.more{margin:8px 0 2px;border-top:1px solid var(--line);padding-top:12px}
+  details.more>summary{cursor:pointer;color:var(--brand);font-size:17px;font-weight:700;padding:8px 0;list-style:revert}
   details.more[open]>summary{margin-bottom:8px}
-  /* big 3-step progress bar */
+  /* 3-step progress bar */
   .stepper{display:flex;gap:8px;margin:14px 0 6px}
   .stepper .si{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;
     background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 6px;
-    font-size:16px;font-weight:700;color:var(--muted);text-align:center;white-space:nowrap}
+    font-size:16px;font-weight:700;color:var(--muted);text-align:center;white-space:nowrap;box-shadow:var(--shadow)}
   .stepper .si .num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
-    flex:0 0 28px;border-radius:50%;background:var(--line);color:var(--ink);font-size:15px}
-  .stepper .si.active{border-color:var(--brand);color:var(--ink);background:#102433}
-  .stepper .si.active .num{background:var(--brand);color:#06243f}
-  .stepper .si.done{color:#9fd9bf;border-color:#1c4631}
-  .stepper .si.done .num{background:var(--good);color:#04261a}
+    flex:0 0 28px;border-radius:50%;background:var(--line);color:var(--muted);font-size:15px}
+  .stepper .si.active{border-color:var(--brand);color:var(--brand);background:#e8f0fe}
+  .stepper .si.active .num{background:var(--brand);color:#fff}
+  .stepper .si.done{color:var(--good);border-color:#bce6cf;background:#f0faf4}
+  .stepper .si.done .num{background:var(--good);color:#fff}
   @media (max-width:460px){ .stepper .si{font-size:14px;padding:10px 4px} }
-  /* as-you-type suggestions for the name field */
-  .suggest{border:1px solid var(--brand);border-radius:12px;background:var(--panel2);margin-top:6px;overflow:hidden}
+  /* as-you-type suggestions */
+  .suggest{border:1.5px solid var(--brand);border-radius:12px;background:#fff;margin-top:6px;overflow:hidden;box-shadow:var(--shadow)}
   .suggest .sug{padding:14px 15px;font-size:18px;cursor:pointer;border-bottom:1px solid var(--line)}
   .suggest .sug:last-child{border-bottom:none}
-  .suggest .sug:active,.suggest .sug:hover{background:#102433}
+  .suggest .sug:active,.suggest .sug:hover{background:#eef4ff}
   .danger{color:var(--bad)}
   footer{border-top:1px solid var(--line);padding:16px 18px;color:var(--muted);font-size:13px;text-align:center}
-  .stepbtns{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);
-    padding:12px 18px;display:flex;gap:10px;justify-content:center;z-index:25}
-  .stepbtns .wrap2{max-width:1100px;width:100%;display:flex;gap:10px;justify-content:flex-end}
-  #scanStatus{font-size:14px;color:var(--muted);margin-top:8px}
+  .stepbtns{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);
+    padding:12px 16px;display:flex;gap:10px;justify-content:center;z-index:25;box-shadow:0 -2px 10px rgba(16,40,70,.06)}
+  .stepbtns .wrap2{max-width:680px;width:100%;display:flex;gap:10px;justify-content:flex-end;align-items:center}
+  #scanStatus{font-size:15px;color:var(--muted);margin-top:8px}
   @media (max-width: 760px){
     .reviewgrid{grid-template-columns:1fr}
     .roster{position:static;max-height:none;border:1px solid var(--line);border-radius:12px}
-    .rotate{display:block;background:#241c10;border:1px solid #4a3a1c;color:#f2dca8;
+    .rotate{display:block;background:#fdf3e0;border:1px solid #f0d8a8;color:#8a5712;
       border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px}
   }
   @media print{ body *{visibility:hidden} #printArea,#printArea *{visibility:visible}
     #printArea{position:absolute;left:0;top:0;width:100%;color:#000} }
   /* agreement gate */
-  .gate{position:fixed;inset:0;background:rgba(6,12,18,.9);z-index:100;display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}
-  .gatebox{background:var(--panel);border:1px solid var(--line);border-radius:16px;max-width:580px;width:100%;padding:22px;max-height:94vh;overflow:auto}
-  .gatebox h2{margin:0 0 10px;font-size:19px}
+  .gate{position:fixed;inset:0;background:rgba(20,30,45,.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}
+  .gatebox{background:var(--panel);border:1px solid var(--line);border-radius:18px;max-width:580px;width:100%;padding:24px;max-height:94vh;overflow:auto;box-shadow:0 10px 40px rgba(16,40,70,.25)}
+  .gatebox h2{margin:0 0 10px;font-size:20px}
   .gatebox ul{padding-left:18px;margin:10px 0}
-  .gatebox li{margin:7px 0;font-size:15px}
+  .gatebox li{margin:8px 0;font-size:15px}
   body.locked{overflow:hidden}
 </style>
 </head>
@@ -176,6 +180,7 @@
 
       <!-- the pre-filled confirm form -->
       <div id="medForm" class="hide" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+        <div class="grouphd">What are you taking?</div>
         <div class="row">
           <div class="col"><label class="f">Medication or supplement *</label>
             <input id="f_name" autocomplete="off" oninput="onNameInput()" onblur="hideNameSuggest()" placeholder="Start typing — e.g. Lisinopril or Vitamin D">
@@ -211,6 +216,7 @@
             <select id="f_form"><option value="">—</option><option>tablet</option><option>capsule</option><option>liquid</option><option>inhaler</option><option>drops</option><option>topical</option><option>injection</option><option>other</option></select>
           </div>
         </div>
+        <div class="grouphd">When do you take it?</div>
         <label class="f">Directions</label>
         <input id="f_dir" oninput="onDirChange()" placeholder="e.g., 1 tablet by mouth twice daily">
         <label class="f">How many times a day?</label>
@@ -222,6 +228,7 @@
         </div>
         <div id="timeWarn" class="warnbox hide"></div>
         <div id="doseList" style="margin-top:10px"></div>
+        <div class="grouphd">Refills (optional)</div>
         <div class="row">
           <div class="col" style="flex:0 1 170px"><label class="f">Pills you have now</label><input id="f_count" type="number" min="0" placeholder="30"></div>
           <div class="col" style="flex:0 1 150px"><label class="f">Refills left</label><input id="f_refills" type="number" min="0" placeholder="0"></div>
@@ -238,7 +245,7 @@
         </details>
         <div id="ocrRaw" class="muted hide" style="font-size:12px;margin-top:8px"></div>
         <div class="row" style="margin-top:12px">
-          <button class="good" onclick="confirmMed()">✓ Confirm this medication</button>
+          <button class="good" onclick="confirmMed()">✓ Save to my list</button>
           <button class="ghost" onclick="hideForm()">Cancel</button>
         </div>
       </div>
