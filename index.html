@@ -69,6 +69,23 @@
   details.more{margin:6px 0 2px;border-top:1px solid var(--line);padding-top:10px}
   details.more>summary{cursor:pointer;color:var(--brand);font-size:17px;font-weight:600;padding:8px 0;list-style:revert}
   details.more[open]>summary{margin-bottom:8px}
+  /* big 3-step progress bar */
+  .stepper{display:flex;gap:8px;margin:14px 0 6px}
+  .stepper .si{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 6px;
+    font-size:16px;font-weight:700;color:var(--muted);text-align:center;white-space:nowrap}
+  .stepper .si .num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
+    flex:0 0 28px;border-radius:50%;background:var(--line);color:var(--ink);font-size:15px}
+  .stepper .si.active{border-color:var(--brand);color:var(--ink);background:#102433}
+  .stepper .si.active .num{background:var(--brand);color:#06243f}
+  .stepper .si.done{color:#9fd9bf;border-color:#1c4631}
+  .stepper .si.done .num{background:var(--good);color:#04261a}
+  @media (max-width:460px){ .stepper .si{font-size:14px;padding:10px 4px} }
+  /* as-you-type suggestions for the name field */
+  .suggest{border:1px solid var(--brand);border-radius:12px;background:var(--panel2);margin-top:6px;overflow:hidden}
+  .suggest .sug{padding:14px 15px;font-size:18px;cursor:pointer;border-bottom:1px solid var(--line)}
+  .suggest .sug:last-child{border-bottom:none}
+  .suggest .sug:active,.suggest .sug:hover{background:#102433}
   .danger{color:var(--bad)}
   footer{border-top:1px solid var(--line);padding:16px 18px;color:var(--muted);font-size:13px;text-align:center}
   .stepbtns{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);
@@ -120,6 +137,12 @@
 
 <div class="wrap">
 
+  <div class="stepper" id="stepper">
+    <div class="si" data-s="builder"><span class="num">1</span> Add</div>
+    <div class="si" data-s="review"><span class="num">2</span> Approve</div>
+    <div class="si" data-s="output"><span class="num">3</span> Reminders</div>
+  </div>
+
   <div class="banner">
     🔒 <b>Nothing is saved here.</b> Your medication list stays on this device, in this page only — close or refresh and it's erased. When you scan a label, the photo is sent securely to be read, then discarded — never stored. <br>
     ⚠️ <b>Not medical advice.</b> This tool only organizes information you enter and confirm. Always follow your prescriber's and pharmacist's instructions.
@@ -128,6 +151,11 @@
 
   <!-- STEP 1: build / load -->
   <section id="builder">
+
+    <div class="banner" style="font-size:18px;border-color:var(--brand)">
+      <b>Step 1 — Add everything you take.</b><br>
+      Scan a label or tap <b>✍️ Add manually</b> for each medication or supplement. When your list looks complete, press the big blue <b>Review &amp; approve ›</b> button at the bottom of the screen.
+    </div>
 
     <div class="card">
       <h2>① Already have a list? Paste it back in</h2>
@@ -146,6 +174,7 @@
         <input id="photo" type="file" accept="image/*" capture="environment" class="hide" onchange="runOCR(event)">
         <button class="ghost" onclick="showForm()">✍️ Add manually</button>
       </div>
+      <div class="muted" style="font-size:15px;margin-top:6px">📶 Photo scan needs an internet connection — <b>Wi-Fi works best</b> (faster, and no mobile data). Typing by hand always works offline.</div>
       <div id="scanStatus"></div>
 
       <details class="more" style="margin-top:8px">
@@ -165,7 +194,8 @@
       <div id="medForm" class="hide" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
         <div class="row">
           <div class="col"><label class="f">Medication or supplement *</label>
-            <input id="f_name" list="drugList" autocomplete="off" placeholder="Start typing — e.g. Lisinopril or Vitamin D">
+            <input id="f_name" autocomplete="off" oninput="onNameInput()" onblur="hideNameSuggest()" placeholder="Start typing — e.g. Lisinopril or Vitamin D">
+            <div id="nameSuggest" class="suggest hide"></div>
             <datalist id="drugList">
               <option>Acetaminophen</option><option>Albuterol</option><option>Allopurinol</option><option>Alprazolam</option><option>Amitriptyline</option><option>Amlodipine</option><option>Amoxicillin</option><option>Apixaban</option><option>Aripiprazole</option><option>Aspirin</option>
               <option>Atenolol</option><option>Atorvastatin</option><option>Azithromycin</option><option>Baclofen</option><option>Benazepril</option><option>Budesonide</option><option>Bupropion</option><option>Buspirone</option><option>Carvedilol</option><option>Cefdinir</option>
@@ -242,7 +272,11 @@
   <!-- STEP 2: review & approve -->
   <section id="review" class="hide">
     <div class="rotate">↻ Turn your phone sideways to see the full list next to the form.</div>
-    <div class="banner">③ <b>Review &amp; approve each medication.</b> The roster on the right shows everything at once — watch for any ⚠️ possible duplicates. The button to finish stays locked until every med is approved.</div>
+    <div class="banner" style="font-size:18px;border-color:var(--brand)">
+      <b>Step 2 — Approve each one.</b><br>
+      Look over every item below and tap its green <b>✓ Approve</b> button. The <b>Generate ›</b> button at the bottom unlocks once <b>all</b> of them are approved.
+    </div>
+    <div id="approveTally" class="warnbox" style="font-size:17px"></div>
     <div class="reviewgrid">
       <div id="reviewList"></div>
       <div class="card roster">
@@ -296,6 +330,7 @@
 <!-- sticky step controls -->
 <div class="stepbtns">
   <div class="wrap2">
+    <span id="lockHint" class="muted" style="align-self:center;font-size:14px;margin-right:auto"></span>
     <button id="backBtn" class="ghost hide" onclick="goBack()">‹ Back</button>
     <button id="toReview" class="primary" onclick="goReview()" disabled>Review &amp; approve ›</button>
     <button id="genBtn" class="good hide" onclick="generateDoc()" disabled>Generate document ›</button>
@@ -348,6 +383,7 @@ function clearForm(){
   doseTimes=[]; setDoses(1);
   $('ocrRaw').classList.add('hide'); $('ocrRaw').textContent='';
   if($('timeWarn')) $('timeWarn').classList.add('hide');
+  if($('nameSuggest')) $('nameSuggest').classList.add('hide');
 }
 // How many times a day the directions imply (null if unknown / "as needed").
 function impliedPerDay(dir){
@@ -513,6 +549,10 @@ function runOCR(ev){
 
 async function scanLabel(file){
   showForm();
+  if(navigator.onLine===false){
+    $('scanStatus').textContent='📶 You appear to be offline. Photo scan needs an internet connection (Wi-Fi works best). Please type the details in below, or try again once you\'re connected.';
+    return;
+  }
   $('scanStatus').textContent='📷 Reading your label… this takes a few seconds.';
   try{
     const image_base64 = await shrinkToJpeg(file);    // shrink on-device before sending
@@ -566,6 +606,58 @@ function setFormSelect(form){
     drops:'drops',drop:'drops',topical:'topical',cream:'topical',ointment:'topical',gel:'topical',
     patch:'topical',injection:'injection',injectable:'injection'};
   $('f_form').value = map[v] || (['tablet','capsule','liquid','inhaler','drops','topical','injection'].includes(v)?v:'other');
+}
+
+/* ---------- name suggestions: instant local list + live NLM RxTerms ----------
+   Local matches show immediately (offline, includes supplements). A debounced
+   call to the U.S. NLM RxTerms API adds the full drug catalogue. Only the typed
+   letters are sent to NLM — never who is taking the medicine. */
+let DRUG_LIST=[];
+let nameTimer=null;
+function initDrugList(){ DRUG_LIST=[...document.querySelectorAll('#drugList option')].map(o=>(o.value||o.textContent).trim()).filter(Boolean); }
+function matchLocal(q){
+  const l=q.toLowerCase(), pre=[], sub=[];
+  for(const d of DRUG_LIST){ const x=d.toLowerCase(); if(x.startsWith(l)) pre.push(d); else if(x.includes(l)) sub.push(d); }
+  return [...pre,...sub].slice(0,8);
+}
+function onNameInput(){
+  const q=$('f_name').value.trim();
+  if(q.length<2){ renderNameSuggest([]); return; }
+  renderNameSuggest(matchLocal(q));                 // instant
+  clearTimeout(nameTimer);
+  nameTimer=setTimeout(()=>fetchRxTerms(q), 220);   // debounced live lookup
+}
+async function fetchRxTerms(q){
+  try{
+    const r=await fetch('https://clinicaltables.nlm.nih.gov/api/rxterms/v3/search?maxList=10&terms='+encodeURIComponent(q));
+    if(!r.ok) return; const data=await r.json();
+    let names=(Array.isArray(data[3])&&data[3].length)?data[3].map(x=>Array.isArray(x)?x[0]:x):(data[1]||[]);
+    names=names.map(n=>String(n).replace(/\s*\(.*?\)\s*$/,'').trim());   // drop "(Oral Pill)" etc.
+    if($('f_name').value.trim()!==q) return;          // user kept typing — ignore stale result
+    const seen=new Set(), merged=[];
+    for(const n of [...matchLocal(q), ...names]){ const k=n.toLowerCase(); if(n&&!seen.has(k)){ seen.add(k); merged.push(n); } }
+    renderNameSuggest(merged.slice(0,10));
+  }catch(e){ /* offline — the instant local matches are already shown */ }
+}
+function renderNameSuggest(list){
+  const box=$('nameSuggest');
+  if(!list.length){ box.classList.add('hide'); box.innerHTML=''; return; }
+  box.innerHTML=list.map(d=>`<div class="sug" onmousedown="pickName('${d.replace(/'/g,"\\'")}')">${esc(d)}</div>`).join('');
+  box.classList.remove('hide');
+}
+function pickName(name){ $('f_name').value=name; renderNameSuggest([]); }
+function hideNameSuggest(){ setTimeout(()=>{ const b=$('nameSuggest'); if(b) b.classList.add('hide'); }, 200); }
+
+// progress bar + approval tracker
+function updateStepper(){
+  const order=['builder','review','output'], cur=order.indexOf(step);
+  document.querySelectorAll('#stepper .si').forEach(el=>{ const i=order.indexOf(el.dataset.s);
+    el.classList.toggle('active', i===cur); el.classList.toggle('done', i<cur); });
+}
+function updateApproveTally(){
+  const total=meds.length, ok=meds.filter(m=>m.approved).length, el=$('approveTally'); if(!el) return;
+  if(total && ok===total){ el.className='changes'; el.innerHTML=`✓ <b>All ${total} approved!</b> Now tap <b>Generate ›</b> at the bottom.`; }
+  else { el.className='warnbox'; el.innerHTML=`Approved <b>${ok} of ${total}</b> — tap the green <b>✓ Approve</b> button on each item below.`; }
 }
 
 /* ---------- paste-in / re-import ---------- */
@@ -622,7 +714,7 @@ function parseDoc(txt){
 
 /* ---------- review & approve ---------- */
 function goReview(){
-  step='review';
+  step='review'; updateStepper();
   $('builder').classList.add('hide'); $('output').classList.add('hide');
   $('review').classList.remove('hide');
   $('toReview').classList.add('hide'); $('genBtn').classList.remove('hide');
@@ -653,6 +745,7 @@ function renderReview(){
   }).join('');
   renderRoster();
   updateGenBtn();
+  updateApproveTally();
 }
 function renderRoster(){
   $('rcount').textContent = meds.length;
@@ -672,8 +765,10 @@ function renderRoster(){
 function approveMed(id){ const m=meds.find(x=>x.id===id); if(m){ m.approved=true; renderReview(); } }
 function editFromReview(id){ goBack(); editMed(id); }
 function updateGenBtn(){
-  const allApproved = meds.length>0 && meds.every(m=>m.approved);
+  const total=meds.length, ok=meds.filter(m=>m.approved).length, allApproved=total>0 && ok===total;
   $('genBtn').disabled = !allApproved;
+  const hint=$('lockHint');
+  if(hint) hint.textContent = (step==='review' && !allApproved) ? `🔒 Approve all ${total} to unlock →` : '';
 }
 
 /* ---------- generate document ---------- */
@@ -711,7 +806,7 @@ function buildDocText(){
   return s;
 }
 function generateDoc(){
-  step='output';
+  step='output'; updateStepper();
   const text = buildDocText();
   $('doc').value = text;
   $('printArea').innerHTML = '<pre style="white-space:pre-wrap;font-size:13px">'+esc(text)+'</pre>';
@@ -726,6 +821,7 @@ function goBack(){
   if(step==='output'){ step='review'; $('output').classList.add('hide'); $('review').classList.remove('hide'); $('genBtn').classList.remove('hide'); renderReview(); }
   else if(step==='review'){ step='builder'; $('review').classList.add('hide'); $('builder').classList.remove('hide');
     $('genBtn').classList.add('hide'); $('toReview').classList.remove('hide'); $('backBtn').classList.add('hide'); renderList(); }
+  updateStepper();
 }
 
 /* ---------- outputs ---------- */
@@ -824,7 +920,9 @@ function toggleDevice(){
 }
 
 renderList();
-setDoses(1);   // draw the first dose-time picker
+setDoses(1);        // draw the first dose-time picker
+initDrugList();     // load the local name-suggestion list
+updateStepper();    // light up step 1
 
 /* ---------- agreement gate ----------
    Uses sessionStorage only (per-tab, wiped when the tab closes) so we don't
