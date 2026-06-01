@@ -4,9 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="robots" content="noindex, nofollow" />
-<title>MedTrack — Medication List & Reminder Helper</title>
+<title>PillPal — Medications & Supplements Reminder Helper</title>
 <!--
-  MedTrack v0 (prototype). PRIVACY BY DESIGN:
+  PillPal v0 (prototype). PRIVACY BY DESIGN:
   - Stores NOTHING. No server, no account, no cookies, no localStorage.
   - Everything lives in memory only; closing/refreshing this page erases it.
   - To read a label, the photo is sent over an encrypted connection to our reader (Cloudflare + Claude),
@@ -22,33 +22,33 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--ink);
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:17px;line-height:1.45}
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:18px;line-height:1.55}
   a{color:var(--brand)}
   header{padding:16px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:30}
   header h1{font-size:20px;margin:0 0 2px}
   header .sub{color:var(--muted);font-size:13px}
   .wrap{max-width:1100px;margin:0 auto;padding:16px 18px 120px}
   .banner{background:#10202c;border:1px solid #1d3a4a;border-radius:var(--radius);
-    padding:12px 14px;margin:14px 0;font-size:14px;color:#bfe0f5}
+    padding:14px 16px;margin:14px 0;font-size:16px;color:#bfe0f5}
   .banner b{color:#dff1ff}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:14px 0}
-  .card h2{margin:0 0 10px;font-size:17px}
-  .row{display:flex;gap:10px;flex-wrap:wrap}
-  label.f{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin:16px 0}
+  .card h2{margin:0 0 12px;font-size:20px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  label.f{display:block;font-size:15px;font-weight:600;color:var(--muted);margin:14px 0 5px}
   input,select,textarea,button{font:inherit}
   input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);
-    color:var(--ink);border-radius:10px;padding:11px 12px}
+    color:var(--ink);border-radius:12px;padding:14px 14px;font-size:19px}
   textarea{min-height:90px;resize:vertical}
   .col{flex:1 1 160px;min-width:140px}
   button{cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--ink);
-    border-radius:10px;padding:11px 14px;font-weight:600}
+    border-radius:12px;padding:15px 20px;font-weight:600;font-size:19px;min-height:54px}
   button:hover{border-color:var(--brand)}
   button.primary{background:var(--brand);border-color:var(--brand);color:#06243f}
   button.good{background:var(--good);border-color:var(--good);color:#04261a}
   button.ghost{background:transparent}
   button:disabled{opacity:.45;cursor:not-allowed}
   .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);
-    border-radius:999px;padding:6px 10px;margin:4px 6px 0 0;font-size:14px;cursor:pointer}
+    border-radius:999px;padding:11px 16px;margin:6px 8px 0 0;font-size:17px;cursor:pointer}
   .pill.on{background:var(--brand);border-color:var(--brand);color:#06243f}
   .muted{color:var(--muted)}
   .med{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:var(--panel2)}
@@ -64,7 +64,11 @@
   .roster .item{display:flex;justify-content:space-between;align-items:center;gap:8px;
     padding:8px 10px;border-bottom:1px solid var(--line);font-size:14px}
   .rotate{display:none}
-  .changes{background:#102619;border:1px solid #1c4631;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px;color:#bfeed4}
+  .changes{background:#102619;border:1px solid #1c4631;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:15px;color:#bfeed4}
+  .warnbox{background:#2a1f0c;border:1px solid #5a4520;color:#f4d79a;border-radius:10px;padding:11px 13px;margin:8px 0;font-size:16px}
+  details.more{margin:6px 0 2px;border-top:1px solid var(--line);padding-top:10px}
+  details.more>summary{cursor:pointer;color:var(--brand);font-size:17px;font-weight:600;padding:8px 0;list-style:revert}
+  details.more[open]>summary{margin-bottom:8px}
   .danger{color:var(--bad)}
   footer{border-top:1px solid var(--line);padding:16px 18px;color:var(--muted);font-size:13px;text-align:center}
   .stepbtns{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);
@@ -110,8 +114,8 @@
 </div>
 
 <header>
-  <h1>💊 MedTrack <span class="muted" style="font-size:13px">v0 prototype</span></h1>
-  <div class="sub">Make a clean medication list, get your reminder times & refill dates — privately.</div>
+  <h1>💊 PillPal <span class="muted" style="font-size:13px">v0 prototype</span></h1>
+  <div class="sub">Keep a clean list of your medications &amp; supplements — with reminder times &amp; refill dates, privately.</div>
 </header>
 
 <div class="wrap">
@@ -128,7 +132,7 @@
     <div class="card">
       <h2>① Already have a list? Paste it back in</h2>
       <p class="muted" style="margin:.2em 0 .6em">Paste the document you saved last time. We'll rebuild your list so you only add/update what changed — no re-typing.</p>
-      <textarea id="pasteIn" placeholder="Paste your saved MedTrack list here…"></textarea>
+      <textarea id="pasteIn" placeholder="Paste your saved PillPal list here…"></textarea>
       <div class="row" style="margin-top:10px">
         <button class="primary" onclick="loadPasted()">Load my list</button>
         <span id="loadMsg" class="muted"></span>
@@ -144,38 +148,80 @@
       </div>
       <div id="scanStatus"></div>
 
+      <details class="more" style="margin-top:8px">
+        <summary>📸 How to get the best scan</summary>
+        <ul style="margin:8px 0 0;padding-left:22px;font-size:16px;line-height:1.65">
+          <li><b>Have the pharmacy paperwork?</b> Scan the printed info sheet that came with your prescription — flat paper reads much better than a curved bottle.</li>
+          <li><b>Fill the frame</b> with just the label or sheet, and hold the phone steady until the text looks sharp.</li>
+          <li><b>Good, even light.</b> Avoid glare, and don't let the camera flash wash out the words.</li>
+          <li><b>Lay it flat / face-on.</b> Flatten the paper, or turn a bottle so the label faces you straight on.</li>
+          <li><b>One medication or supplement at a time.</b></li>
+        </ul>
+      </details>
+
       <!-- label scan: one photo → secure cloud reader → fields below fill in -->
 
       <!-- the pre-filled confirm form -->
       <div id="medForm" class="hide" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
         <div class="row">
-          <div class="col"><label class="f">Medication name *</label><input id="f_name" placeholder="e.g., Lisinopril"></div>
-          <div class="col" style="flex:0 1 130px"><label class="f">Strength</label><input id="f_strength" placeholder="10 mg"></div>
-          <div class="col" style="flex:0 1 150px"><label class="f">Form</label>
+          <div class="col"><label class="f">Medication or supplement *</label>
+            <input id="f_name" list="drugList" autocomplete="off" placeholder="Start typing — e.g. Lisinopril or Vitamin D">
+            <datalist id="drugList">
+              <option>Acetaminophen</option><option>Albuterol</option><option>Allopurinol</option><option>Alprazolam</option><option>Amitriptyline</option><option>Amlodipine</option><option>Amoxicillin</option><option>Apixaban</option><option>Aripiprazole</option><option>Aspirin</option>
+              <option>Atenolol</option><option>Atorvastatin</option><option>Azithromycin</option><option>Baclofen</option><option>Benazepril</option><option>Budesonide</option><option>Bupropion</option><option>Buspirone</option><option>Carvedilol</option><option>Cefdinir</option>
+              <option>Cephalexin</option><option>Cetirizine</option><option>Ciprofloxacin</option><option>Citalopram</option><option>Clindamycin</option><option>Clonazepam</option><option>Clonidine</option><option>Clopidogrel</option><option>Colchicine</option><option>Cyclobenzaprine</option>
+              <option>Diazepam</option><option>Diclofenac</option><option>Digoxin</option><option>Diltiazem</option><option>Diphenhydramine</option><option>Donepezil</option><option>Doxycycline</option><option>Duloxetine</option><option>Empagliflozin</option><option>Enalapril</option>
+              <option>Escitalopram</option><option>Esomeprazole</option><option>Estradiol</option><option>Ezetimibe</option><option>Famotidine</option><option>Fenofibrate</option><option>Finasteride</option><option>Fluconazole</option><option>Fluoxetine</option><option>Fluticasone</option>
+              <option>Folic Acid</option><option>Furosemide</option><option>Gabapentin</option><option>Glimepiride</option><option>Glipizide</option><option>Hydralazine</option><option>Hydrochlorothiazide</option><option>Hydroxyzine</option><option>Ibuprofen</option><option>Insulin Glargine</option>
+              <option>Ipratropium</option><option>Lamotrigine</option><option>Lansoprazole</option><option>Latanoprost</option><option>Levothyroxine</option><option>Lisinopril</option><option>Lithium</option><option>Loratadine</option><option>Lorazepam</option><option>Losartan</option>
+              <option>Lovastatin</option><option>Meloxicam</option><option>Metformin</option><option>Methotrexate</option><option>Methylphenidate</option><option>Metoprolol</option><option>Metronidazole</option><option>Mirtazapine</option><option>Montelukast</option><option>Morphine</option>
+              <option>Naproxen</option><option>Nifedipine</option><option>Nitrofurantoin</option><option>Nitroglycerin</option><option>Nortriptyline</option><option>Olmesartan</option><option>Omeprazole</option><option>Ondansetron</option><option>Oxybutynin</option><option>Oxycodone</option>
+              <option>Pantoprazole</option><option>Paroxetine</option><option>Phentermine</option><option>Potassium Chloride</option><option>Pravastatin</option><option>Prednisone</option><option>Pregabalin</option><option>Promethazine</option><option>Propranolol</option><option>Quetiapine</option>
+              <option>Ramipril</option><option>Rivaroxaban</option><option>Rosuvastatin</option><option>Sertraline</option><option>Sildenafil</option><option>Simvastatin</option><option>Spironolactone</option><option>Sumatriptan</option><option>Tadalafil</option><option>Tamsulosin</option>
+              <option>Telmisartan</option><option>Tizanidine</option><option>Topiramate</option><option>Tramadol</option><option>Trazodone</option><option>Triamcinolone</option><option>Valacyclovir</option><option>Valsartan</option><option>Venlafaxine</option><option>Verapamil</option>
+              <option>Warfarin</option><option>Zolpidem</option>
+              <option>Adderall</option><option>Advair</option><option>Advil</option><option>Aleve</option><option>Allegra</option><option>Ambien</option><option>Ativan</option><option>Bactrim</option><option>Benadryl</option><option>Celebrex</option>
+              <option>Cialis</option><option>Claritin</option><option>Concerta</option><option>Coumadin</option><option>Cozaar</option><option>Crestor</option><option>Cymbalta</option><option>Diovan</option><option>Eliquis</option><option>Flomax</option>
+              <option>Flonase</option><option>Glucophage</option><option>Humalog</option><option>Januvia</option><option>Jardiance</option><option>Keflex</option><option>Klonopin</option><option>Lantus</option><option>Lasix</option><option>Lexapro</option>
+              <option>Lipitor</option><option>Lopressor</option><option>Lyrica</option><option>Mounjaro</option><option>Mucinex</option><option>Nexium</option><option>Norvasc</option><option>Ozempic</option><option>Plavix</option><option>Prilosec</option>
+              <option>Protonix</option><option>Prozac</option><option>Restoril</option><option>Ritalin</option><option>Singulair</option><option>Synthroid</option><option>Tenormin</option><option>Toprol XL</option><option>Trulicity</option><option>Tylenol</option>
+              <option>Ventolin</option><option>Viagra</option><option>Wellbutrin</option><option>Xanax</option><option>Xarelto</option><option>Zithromax</option><option>Zoloft</option><option>Zyrtec</option>
+              <option>Multivitamin</option><option>Vitamin A</option><option>Vitamin B Complex</option><option>Vitamin B6</option><option>Vitamin B12</option><option>Vitamin C</option><option>Vitamin D</option><option>Vitamin D3</option><option>Vitamin E</option><option>Vitamin K2</option>
+              <option>Calcium</option><option>Magnesium</option><option>Magnesium Glycinate</option><option>Magnesium Citrate</option><option>Zinc</option><option>Iron</option><option>Potassium</option><option>Selenium</option><option>Iodine</option><option>Niacin</option>
+              <option>Fish Oil</option><option>Omega-3</option><option>NAC (N-Acetyl Cysteine)</option><option>CoQ10</option><option>Probiotic</option><option>Melatonin</option><option>Biotin</option><option>Collagen</option><option>Turmeric</option><option>Curcumin</option>
+              <option>Creatine</option><option>Ashwagandha</option><option>Glucosamine</option><option>Chondroitin</option><option>Psyllium Fiber</option><option>L-Theanine</option><option>Glutathione</option><option>Saw Palmetto</option><option>Elderberry</option><option>Ginger</option>
+            </datalist>
+          </div>
+          <div class="col" style="flex:0 1 150px"><label class="f">Strength / dose</label><input id="f_strength" placeholder="10 mg"></div>
+          <div class="col" style="flex:0 1 160px"><label class="f">Form</label>
             <select id="f_form"><option value="">—</option><option>tablet</option><option>capsule</option><option>liquid</option><option>inhaler</option><option>drops</option><option>topical</option><option>injection</option><option>other</option></select>
           </div>
         </div>
-        <label class="f">Directions (optional)</label>
-        <input id="f_dir" placeholder="e.g., 1 tablet by mouth twice daily">
-        <label class="f">Times to take — tap presets or type your own</label>
-        <div id="presets">
-          <span class="pill" onclick="togglePreset(this,'8:00 AM')">Morning 8:00 AM</span>
-          <span class="pill" onclick="togglePreset(this,'12:00 PM')">Noon 12:00 PM</span>
-          <span class="pill" onclick="togglePreset(this,'2:00 PM')">Afternoon 2:00 PM</span>
-          <span class="pill" onclick="togglePreset(this,'6:00 PM')">Evening 6:00 PM</span>
-          <span class="pill" onclick="togglePreset(this,'9:00 PM')">Bedtime 9:00 PM</span>
+        <label class="f">Directions</label>
+        <input id="f_dir" oninput="onDirChange()" placeholder="e.g., 1 tablet by mouth twice daily">
+        <label class="f">How many times a day?</label>
+        <div id="freqBtns" class="row" style="gap:8px">
+          <span class="pill freq" data-n="1" onclick="setDoses(1)">1</span>
+          <span class="pill freq" data-n="2" onclick="setDoses(2)">2</span>
+          <span class="pill freq" data-n="3" onclick="setDoses(3)">3</span>
+          <span class="pill freq" data-n="4" onclick="setDoses(4)">4</span>
         </div>
-        <input id="f_times" placeholder="8:00 AM, 2:00 PM" style="margin-top:8px">
+        <div id="timeWarn" class="warnbox hide"></div>
+        <div id="doseList" style="margin-top:10px"></div>
         <div class="row">
-          <div class="col" style="flex:0 1 130px"><label class="f">Count on hand</label><input id="f_count" type="number" min="0" placeholder="30"></div>
-          <div class="col" style="flex:0 1 120px"><label class="f">Refills left</label><input id="f_refills" type="number" min="0" placeholder="0"></div>
-          <div class="col" style="flex:0 1 150px"><label class="f">Doses per day</label><input id="f_perday" type="number" min="0" step="0.5" placeholder="auto from times"></div>
-          <div class="col" style="flex:0 1 160px"><label class="f">Refill buffer (days)</label><input id="f_buffer" type="number" min="0" value="7"></div>
+          <div class="col" style="flex:0 1 170px"><label class="f">Pills you have now</label><input id="f_count" type="number" min="0" placeholder="30"></div>
+          <div class="col" style="flex:0 1 150px"><label class="f">Refills left</label><input id="f_refills" type="number" min="0" placeholder="0"></div>
         </div>
-        <div class="row">
-          <div class="col"><label class="f">Rx # (optional)</label><input id="f_rx" placeholder=""></div>
-          <div class="col"><label class="f">Pharmacy (optional)</label><input id="f_pharm" placeholder=""></div>
-        </div>
+        <details class="more">
+          <summary>More options (optional)</summary>
+          <div class="row" style="margin-top:8px">
+            <div class="col" style="flex:0 1 170px"><label class="f">Refill buffer (days)</label><input id="f_buffer" type="number" min="0" value="7"></div>
+          </div>
+          <div class="row">
+            <div class="col"><label class="f">Rx #</label><input id="f_rx" placeholder=""></div>
+            <div class="col"><label class="f">Pharmacy</label><input id="f_pharm" placeholder=""></div>
+          </div>
+        </details>
         <div id="ocrRaw" class="muted hide" style="font-size:12px;margin-top:8px"></div>
         <div class="row" style="margin-top:12px">
           <button class="good" onclick="confirmMed()">✓ Confirm this medication</button>
@@ -231,7 +277,7 @@
     </div>
 
     <div class="card">
-      <h2>Your medication list</h2>
+      <h2>Your medications &amp; supplements</h2>
       <p class="muted" style="margin:.2em 0 .6em">Save a copy so you have it next time and can show any doctor.</p>
       <textarea id="doc" style="min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px" readonly></textarea>
       <div class="row" style="margin-top:10px">
@@ -257,14 +303,16 @@
 </div>
 
 <footer>
-  MedTrack v0 prototype · Stores nothing · Not medical advice · <a href="legal.html">Terms &amp; Privacy</a> · © <span id="yr"></span> — all rights reserved.
+  PillPal v0 prototype · Stores nothing · Not medical advice · <a href="legal.html">Terms &amp; Privacy</a> · © <span id="yr"></span> — all rights reserved.
 </footer>
 
 <script>
 /* ===== In-memory state ONLY. Nothing is persisted anywhere. ===== */
 let meds = [];          // {id,name,strength,form,dir,times[],count,perDay,buffer,rx,pharm,stopped,approved}
 let editId = null;      // when editing an existing med
-let presetTimes = [];   // chosen presets for the form
+let doseN = 1;          // how many doses per day
+let doseTimes = [];     // chosen time for each dose
+let doseAck = false;    // user ticked "yes, extra dose on purpose"
 let step = 'builder';
 
 document.getElementById('yr').textContent = new Date().getFullYear();
@@ -295,32 +343,82 @@ function matchExisting(name, strength, exceptId){
 function showForm(){ $('medForm').classList.remove('hide'); }
 function hideForm(){ $('medForm').classList.add('hide'); clearForm(); }
 function clearForm(){
-  ['f_name','f_strength','f_dir','f_times','f_count','f_refills','f_perday','f_rx','f_pharm'].forEach(i=>$(i).value='');
-  $('f_form').value=''; $('f_buffer').value='7'; presetTimes=[]; editId=null;
-  document.querySelectorAll('#presets .pill').forEach(p=>p.classList.remove('on'));
+  ['f_name','f_strength','f_dir','f_count','f_refills','f_rx','f_pharm'].forEach(i=>$(i).value='');
+  $('f_form').value=''; $('f_buffer').value='7'; editId=null;
+  doseTimes=[]; setDoses(1);
   $('ocrRaw').classList.add('hide'); $('ocrRaw').textContent='';
+  if($('timeWarn')) $('timeWarn').classList.add('hide');
 }
-function togglePreset(el,t){
-  el.classList.toggle('on');
-  const i = presetTimes.indexOf(t);
-  if(i>=0) presetTimes.splice(i,1); else presetTimes.push(t);
-  // merge presets into the times field (keep any manually typed extras)
-  const typed = $('f_times').value.split(',').map(s=>s.trim()).filter(Boolean).filter(x=>!isPreset(x));
-  $('f_times').value = [...presetTimes, ...typed].join(', ');
+// How many times a day the directions imply (null if unknown / "as needed").
+function impliedPerDay(dir){
+  const t=(dir||'').toLowerCase(); if(!t) return null; let m;
+  if(m=t.match(/every\s+(\d+)\s*(?:hours|hrs|hour|h)\b/)){ const h=parseInt(m[1],10); if(h>0) return Math.max(1,Math.min(6,Math.round(24/h))); }
+  if(/\b(four\s*times|4\s*times|4x|q\.?i\.?d\.?)\b/.test(t)) return 4;
+  if(/\b(three\s*times|3\s*times|3x|t\.?i\.?d\.?)\b/.test(t)) return 3;
+  if(/\b(twice|two\s*times|2\s*times|2x|b\.?i\.?d\.?)\b/.test(t)) return 2;
+  if(/\b(once|one\s*time|1\s*time|1x|q\.?d\.?|every\s*day|each\s*day|at\s*bedtime|at\s*night)\b/.test(t)) return 1;
+  if(/\bdaily\b|\ba\s*day\b|\bper\s*day\b/.test(t)) return 1;
+  return null; // "as needed" / "as directed" — no implied limit
 }
-function isPreset(x){ return ['8:00 AM','12:00 PM','2:00 PM','6:00 PM','9:00 PM'].includes(x); }
+
+/* ---- one time-picker per dose: you can't set more times than there are doses ---- */
+const DOSE_TIME_OPTS=['6:00 AM','7:00 AM','8:00 AM','9:00 AM','10:00 AM','11:00 AM','12:00 PM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM','6:00 PM','7:00 PM','8:00 PM','9:00 PM','10:00 PM','11:00 PM'];
+const DEFAULT_DOSE_TIMES=['8:00 AM','6:00 PM','2:00 PM','10:00 PM','11:00 AM','4:00 PM'];
+
+// Set the number of doses per day and (re)draw one time picker per dose.
+function setDoses(n){
+  n=Math.max(1,Math.min(6, n|0));
+  const next=[]; for(let i=0;i<n;i++){ next[i]=doseTimes[i]||DEFAULT_DOSE_TIMES[i]||''; }
+  doseTimes=next; doseN=n; doseAck=false; renderDoses(); checkTimes();
+}
+function renderDoses(){
+  document.querySelectorAll('#freqBtns .freq').forEach(b=>b.classList.toggle('on',(+b.dataset.n)===doseN));
+  const optsFor=i=>['<option value="">— pick a time —</option>'].concat(
+    DOSE_TIME_OPTS.map(t=>`<option${t===doseTimes[i]?' selected':''}>${t}</option>`)).join('');
+  let h='';
+  for(let i=0;i<doseN;i++){
+    h+=`<label class="f">Dose ${i+1} — take at:</label><select class="doseTime" data-i="${i}" onchange="onDoseTime()">${optsFor(i)}</select>`;
+  }
+  $('doseList').innerHTML=h;
+}
+function onDoseTime(){ document.querySelectorAll('#doseList .doseTime').forEach(s=>{ doseTimes[+s.dataset.i]=s.value; }); }
+
+// When directions change, match the number of doses to what they say.
+function onDirChange(){ doseAck=false; const n=impliedPerDay($('f_dir').value); if(n) setDoses(n); else checkTimes(); }
+
+// If more doses are set up than the directions imply, require an explicit
+// acknowledgement (checkbox) before Confirm — and remember that they overrode it.
+function checkTimes(){
+  const implied=impliedPerDay($('f_dir').value), warn=$('timeWarn');
+  if(implied && doseN>implied){
+    const extra=doseN-implied;
+    warn.innerHTML=`⚠️ The directions look like <b>${implied} time${implied>1?'s':''} a day</b>, but you've set up <b>${doseN}</b> doses.`
+      +`<label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;cursor:pointer">`
+      +`<input type="checkbox" id="doseAck" ${doseAck?'checked':''} onchange="ackDose(this)" style="width:auto;margin-top:5px;transform:scale(1.3)">`
+      +`<span>Yes — I'm intentionally adding ${extra} extra dose${extra>1?'s':''} beyond what the directions say. I understand this will be noted on my saved list.</span></label>`;
+    warn.classList.remove('hide');
+    return doseAck; // blocked until the box is ticked
+  }
+  warn.classList.add('hide'); return true;
+}
+function ackDose(cb){ doseAck=cb.checked; }
 
 function confirmMed(){
   const name = $('f_name').value.trim();
   if(!name){ alert('Please enter a medication name.'); return; }
-  const times = $('f_times').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!checkTimes()){ alert('Please tick the box to confirm the extra dose — you\'ve set up more doses than the directions say.'); return; }
+  const dir = $('f_dir').value.trim();
+  const implied = impliedPerDay(dir);
+  const times = doseTimes.slice(0,doseN).filter(Boolean);
   const m = {
     id: editId || uid(),
     name, strength:$('f_strength').value.trim(), form:$('f_form').value,
-    dir:$('f_dir').value.trim(), times,
+    dir, times,
     count: parseFloat($('f_count').value)||0,
     refills: $('f_refills').value.trim(),
-    perDay: parseFloat($('f_perday').value)||0,
+    perDay: doseN,
+    impliedDoses: implied,                          // what the directions said
+    extraDose: (implied!=null && doseN>implied),    // user added doses beyond that
     buffer: parseFloat($('f_buffer').value)||0,
     rx:$('f_rx').value.trim(), pharm:$('f_pharm').value.trim(),
     stopped:false, approved:false
@@ -353,11 +451,12 @@ function editMed(id){
   const m = meds.find(x=>x.id===id); if(!m) return;
   editId=id;
   $('f_name').value=m.name; $('f_strength').value=m.strength; $('f_form').value=m.form||'';
-  $('f_dir').value=m.dir||''; $('f_times').value=(m.times||[]).join(', ');
-  $('f_count').value=m.count||''; $('f_refills').value=m.refills||''; $('f_perday').value=m.perDay||''; $('f_buffer').value=m.buffer||0;
+  $('f_dir').value=m.dir||'';
+  $('f_count').value=m.count||''; $('f_refills').value=m.refills||''; $('f_buffer').value=m.buffer||0;
   $('f_rx').value=m.rx||''; $('f_pharm').value=m.pharm||'';
-  presetTimes = (m.times||[]).filter(isPreset);
-  document.querySelectorAll('#presets .pill').forEach(p=>{ p.classList.toggle('on', presetTimes.includes(p.textContent.replace(/^[^0-9]*/,''))); });
+  doseTimes = (m.times||[]).slice();
+  setDoses(m.perDay && m.perDay>0 ? Math.round(m.perDay) : Math.max(1,(m.times||[]).length||1));
+  if(m.extraDose){ doseAck=true; checkTimes(); }   // keep their prior acknowledgement
   showForm(); window.scrollTo({top:0,behavior:'smooth'});
 }
 function toggleStop(id){ const m=meds.find(x=>x.id===id); if(m){ m.stopped=!m.stopped; m.approved=false; renderList(); } }
@@ -381,6 +480,7 @@ function renderList(){
           ${m.times.length?`Take at: ${esc(m.times.join(', '))}<br>`:''}
           ${m.dir?`${esc(m.dir)}<br>`:''}
           ${m.count?`Count: ${m.count}`:''}${m.refills?` · Refills left: ${esc(m.refills)}`:''}${rd?` · Refill reminder: ${fmtDate(rd)}`:''}
+          ${m.extraDose?`<br><span class="danger">⚠ Extra dose added by you (you set ${m.perDay}/day; directions said ${m.impliedDoses})</span>`:''}
           ${m.rx||m.pharm?`<br>${esc(m.rx?('Rx# '+m.rx):'')}${m.rx&&m.pharm?' · ':''}${esc(m.pharm||'')}`:''}
         </div>
         <div class="row" style="margin-top:8px">
@@ -455,6 +555,7 @@ function fillFromScan(f){
   if(f.quantity) $('f_count').value=(String(f.quantity).match(/\d+(?:\.\d+)?/)||[''])[0];
   if(f.refills!=='' && f.refills!=null) $('f_refills').value=(String(f.refills).match(/\d+/)||[''])[0];
   if(f.rx_number) $('f_rx').value=String(f.rx_number).replace(/[^0-9\-]/g,'');
+  onDirChange(); // set the dose pickers to match the scanned directions
 }
 
 // Match the read form word to one of the dropdown's options.
@@ -472,7 +573,7 @@ function loadPasted(){
   const txt = $('pasteIn').value;
   if(!txt.trim()){ $('loadMsg').textContent='Paste your saved list first.'; return; }
   const parsed = parseDoc(txt);
-  if(!parsed.length){ $('loadMsg').textContent='Couldn\'t find medications in that text — check it\'s a MedTrack list.'; return; }
+  if(!parsed.length){ $('loadMsg').textContent='Couldn\'t find medications in that text — check it\'s a PillPal list.'; return; }
   let added=0, updated=0;
   parsed.forEach(p=>{
     const ex = matchExisting(p.name,p.strength);
@@ -499,7 +600,7 @@ function parseDoc(txt){
       const form = (head.match(/\(([^)]+)\)\s*$/)||[])[1]||'';
       head = head.replace(/\(([^)]+)\)\s*$/,'').trim();
       const sm = head.match(/(.+?)\s+(\d+(?:\.\d+)?\s?(?:mg|mcg|g|ml|units?))\s*$/i);
-      cur = {name:'',strength:'',form:form,dir:'',times:[],count:0,refills:'',perDay:0,buffer:7,rx:'',pharm:'',stopped:/stopped/i.test(line),approved:false};
+      cur = {name:'',strength:'',form:form,dir:'',times:[],count:0,refills:'',perDay:0,impliedDoses:null,extraDose:false,buffer:7,rx:'',pharm:'',stopped:/stopped/i.test(line),approved:false};
       if(sm){ cur.name=sm[1].trim(); cur.strength=sm[2].trim(); } else { cur.name=head; }
       continue;
     }
@@ -509,6 +610,7 @@ function parseDoc(txt){
     else if(m=line.match(/directions:\s*(.+)/i)) cur.dir=m[1].trim();
     else if(m=line.match(/count:\s*(\d+(?:\.\d+)?)/i)) cur.count=parseFloat(m[1]);
     else if(m=line.match(/refills left:\s*(\d+)/i)) cur.refills=m[1];
+    else if(m=line.match(/extra dose added by you:\s*you set\s+(\d+).*indicated\s+(\d+)/i)){ cur.perDay=parseFloat(m[1]); cur.impliedDoses=parseFloat(m[2]); cur.extraDose=true; }
     else if(m=line.match(/doses per day:\s*(\d+(?:\.\d+)?)/i)) cur.perDay=parseFloat(m[1]);
     else if(m=line.match(/rx#\s*([^\s·|]+)/i)) cur.rx=m[1].trim();
     else if(m=line.match(/·\s*(.+pharmac.+|.+\bRx\b.+)/i)) {}
@@ -541,6 +643,7 @@ function renderReview(){
         ${m.times.length?`Take at: ${esc(m.times.join(', '))}<br>`:''}
         ${m.dir?esc(m.dir)+'<br>':''}
         ${m.count?`Count: ${m.count}`:''}${rd?` · Refill: ${fmtDate(rd)}`:''}
+        ${m.extraDose?`<br><span class="danger">⚠ Extra dose added by you (${m.perDay}/day; directions said ${m.impliedDoses})</span>`:''}
       </div>
       <div class="row" style="margin-top:8px">
         <button class="ghost" onclick="editFromReview('${m.id}')">Edit</button>
@@ -577,7 +680,7 @@ function updateGenBtn(){
 function buildDocText(){
   const today = new Date();
   const active = meds.filter(m=>!m.stopped);
-  let s = `═══ MY MEDICATIONS — as of ${fmtDate(today)} ═══\n`;
+  let s = `═══ MY MEDICATIONS & SUPPLEMENTS — as of ${fmtDate(today)} ═══\n`;
   s += `Patient-reported. Not medical advice. Keep this private.\n\n`;
   active.forEach(m=>{
     const rd=refillDate(m);
@@ -586,6 +689,7 @@ function buildDocText(){
     if(m.dir) s += `   Directions: ${m.dir}\n`;
     if(m.count) s += `   Count: ${m.count} (as of ${fmtDate(today)})\n`;
     if(m.refills) s += `   Refills left: ${m.refills}\n`;
+    if(m.extraDose) s += `   ** EXTRA DOSE ADDED BY YOU: you set ${m.perDay} dose(s)/day; the directions indicated ${m.impliedDoses}. Not from the prescriber. **\n`;
     const dpd=dosesPerDay(m); if(dpd) s += `   Doses per day: ${dpd}\n`;
     if(rd) s += `   Refill reminder: ${fmtDate(rd)}\n`;
     if(m.rx) s += `   Rx# ${m.rx}${m.pharm?' · '+m.pharm:''}\n`;
@@ -603,7 +707,7 @@ function buildDocText(){
   const refills = active.map(m=>({m,rd:refillDate(m)})).filter(x=>x.rd).sort((a,b)=>a.rd-b.rd);
   if(refills.length){ s += `─── REFILL REMINDERS (set a calendar alert) ───\n`; refills.forEach(x=>s+=` ${fmtDate(x.rd)} — ${x.m.name}\n`); s+=`\n`; }
 
-  s += `(Created with MedTrack v0 — this tool stores nothing. Keep your own copy.)\n`;
+  s += `(Created with PillPal v0 — this tool stores nothing. Keep your own copy.)\n`;
   return s;
 }
 function generateDoc(){
@@ -641,7 +745,7 @@ function to24(t){ // "8:00 AM" -> {h,m}
 }
 function downloadICS(){
   const discreet = $('icsPrivate') ? $('icsPrivate').checked : true;
-  const today=new Date(); let ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//MedTrack v0//EN\r\nCALSCALE:GREGORIAN\r\n';
+  const today=new Date(); let ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//PillPal v0//EN\r\nCALSCALE:GREGORIAN\r\n';
   const stamp = today.getFullYear()+pad(today.getMonth()+1)+pad(today.getDate())+'T000000';
   meds.filter(m=>!m.stopped).forEach((m,i)=>{
     const nameStr = icsSafe(m.name)+(m.strength?(' '+icsSafe(m.strength)):'');
@@ -720,6 +824,7 @@ function toggleDevice(){
 }
 
 renderList();
+setDoses(1);   // draw the first dose-time picker
 
 /* ---------- agreement gate ----------
    Uses sessionStorage only (per-tab, wiped when the tab closes) so we don't
