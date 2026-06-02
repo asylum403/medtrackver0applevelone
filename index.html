@@ -160,7 +160,7 @@
       <div class="row">
         <button class="primary" style="flex:1 1 160px" onclick="document.getElementById('photo').click()">📷 Take a photo of the label</button>
         <input id="photo" type="file" accept="image/*" capture="environment" class="hide" onchange="runOCR(event)">
-        <button class="ghost" style="flex:1 1 160px" onclick="showForm()">✍️ Type it in</button>
+        <button class="ghost" style="flex:1 1 160px" onclick="showFormManual()">✍️ Type it in</button>
       </div>
       <div class="muted" style="font-size:15px;margin-top:6px">📶 Taking a photo needs an internet connection — <b>Wi-Fi works best</b> (faster, no mobile data). Typing it in by hand always works offline.</div>
       <div id="scanStatus"></div>
@@ -294,6 +294,7 @@
     <div class="card" id="reminderCard" style="border:2px solid var(--brand)">
       <h2 style="font-size:21px">⏰ Turn on your reminders</h2>
       <p style="font-size:18px;margin:.2em 0 1em">This adds a reminder to your phone for every dose and every refill — it beeps at each time, even when this page is closed. Each medication's reminders run until its supply runs out (based on the count you entered) — with a refill reminder before then — so the alarms stop on their own when you're out.</p>
+      <p class="muted" style="font-size:15px;margin:.2em 0 1em;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 14px">💊 <b>Picked up a refill?</b> Paste your saved list back in first (under <i>"Returning? Restore a saved list"</i> on the Add screen) and update the count. The new reminders pick up <b>where your current ones end</b> — so you won't get two alarms at the same time for the same medicine.</p>
       <label style="display:flex;gap:10px;align-items:flex-start;font-size:17px;cursor:pointer;margin:0 0 16px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px">
         <input type="checkbox" id="icsPrivate" checked style="width:auto;margin-top:4px;transform:scale(1.3)">
         <span>Keep my reminders private.
@@ -371,12 +372,81 @@ function refillDate(m){
   const d = new Date(); d.setDate(d.getDate()+days); d.setHours(0,0,0,0);
   return d;
 }
+
+/* ---------- reminder-window math (so refills append, never duplicate) ----------
+   Each med carries the window its alarms cover. The SAVED TEXT records start→end,
+   so when the user pastes the list back and adds a resupply, the new alarms begin
+   the day AFTER the current supply runs out instead of restarting from today —
+   no two alarms ever land on the same day for the same drug. */
+function startToday(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
+function addDaysD(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); x.setHours(0,0,0,0); return x; }
+function fmtISO(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function parseISO(s){ const x=(s||'').match(/(\d{4})-(\d{2})-(\d{2})/); if(!x) return null;
+  const d=new Date(+x[1],+x[2]-1,+x[3]); d.setHours(0,0,0,0); return d; }
+function slug(m){ return (norm(m.name)+norm(m.strength)).replace(/[^a-z0-9]/g,'') || 'med'; }
+
+// Plan the reminder window for one med, given today + the month-end horizon.
+// Returns: {bounded, covStart, covEnd, emitStart, emitEnd, emitDays}
+//   covStart/covEnd = the FULL window the calendar now covers (for the saved text)
+//   emitStart/emitEnd/emitDays = only the NEW slice this download should write
+//   emitStart === null  ⇒  current supply already covers it; write no new dose alarms.
+function planReminders(m, today, horizon){
+  const dpd = dosesPerDay(m);
+  const bounded = (m.count>0 && dpd>0);
+  const prior = (m.priorEnd && m.priorEnd>=today) ? m.priorEnd : null; // schedule already in calendar
+  const covStart = (m.priorStart && prior) ? m.priorStart : today;
+  if(bounded){
+    const daysTotal = Math.max(1, Math.floor(m.count/dpd));   // days the on-hand pills justify
+    const desiredEnd = addDaysD(today, daysTotal-1);
+    if(prior){
+      if(desiredEnd > prior){                                  // refill adds coverage → append the tail
+        const emitStart = addDaysD(prior,1);
+        return {bounded:true, covStart, covEnd:desiredEnd, emitStart, emitEnd:desiredEnd,
+                emitDays: Math.round((desiredEnd-emitStart)/86400000)+1};
+      }
+      return {bounded:true, covStart, covEnd:prior, emitStart:null, emitEnd:null, emitDays:0}; // already covered
+    }
+    return {bounded:true, covStart:today, covEnd:desiredEnd, emitStart:today, emitEnd:desiredEnd, emitDays:daysTotal};
+  }
+  // no supply count → run to the month-end horizon (unchanged behavior), appended if needed
+  const emitStart = prior ? addDaysD(prior,1) : today;
+  if(emitStart > horizon) return {bounded:false, covStart, covEnd:(prior||horizon), emitStart:null, emitEnd:null, emitDays:0};
+  return {bounded:false, covStart, covEnd:horizon, emitStart, emitEnd:horizon, emitDays:0};
+}
+
+// Resolve every med's window once; shared by the saved text and the .ics download
+// so they always agree. Idempotent: re-runs read priorEnd (never the result), so
+// clicking download twice never appends twice.
+function computePlans(){
+  const today=startToday();
+  let horizon = new Date(today.getFullYear(), today.getMonth()+1, 0); horizon.setHours(0,0,0,0);
+  if((horizon-today)/86400000 < 10){ horizon = new Date(today.getFullYear(), today.getMonth()+2, 0); horizon.setHours(0,0,0,0); }
+  meds.forEach(m=>{ m._plan = m.stopped ? null : planReminders(m, today, horizon); });
+  return {today, horizon};
+}
+
+// When the supply actually runs out, less the refill buffer (tied to the window end).
+function refillReminderDate(m){
+  const pl=m._plan;
+  if(pl && pl.bounded && pl.covEnd) return addDaysD(pl.covEnd, -(m.buffer||0));
+  return refillDate(m); // pre-generation estimate / null when no count
+}
 function matchExisting(name, strength, exceptId){
   return meds.find(m => m.id!==exceptId && norm(m.name)===norm(name) && norm(m.strength)===norm(strength));
 }
 
 /* ---------- the add/confirm form ---------- */
 function showForm(){ $('medForm').classList.remove('hide'); }
+// "Type it in" — reveal the form, scroll it into view, and put the cursor in the
+// first field so the user lands right where they type instead of hunting for it.
+function showFormManual(){
+  showForm();
+  const f=$('medForm');
+  f.scrollIntoView({behavior:'smooth', block:'start'});
+  const name=$('f_name');
+  // focus after the scroll settles (and without yanking the page on mobile)
+  setTimeout(()=>{ try{ name.focus({preventScroll:true}); }catch(e){ name.focus(); } }, 350);
+}
 function hideForm(){ const back=editFrom; editFrom=null; $('medForm').classList.add('hide'); clearForm(); if(back==='review') goReview(); }
 function clearForm(){
   ['f_name','f_strength','f_dir','f_count','f_refills','f_rx','f_pharm'].forEach(i=>$(i).value='');
@@ -458,10 +528,13 @@ function confirmMed(){
     extraDose: (implied!=null && doseN>implied),    // user added doses beyond that
     buffer: parseFloat($('f_buffer').value)||0,
     rx:$('f_rx').value.trim(), pharm:$('f_pharm').value.trim(),
-    stopped:false, approved:false
+    stopped:false, approved:false,
+    priorStart:null, priorEnd:null
   };
+  const keepWindow = (src)=>{ if(src){ m.priorStart=src.priorStart||null; m.priorEnd=src.priorEnd||null; } };
 
   if(editId){ // updating the one being edited
+    keepWindow(meds.find(x=>x.id===editId)); // editing/refilling extends, never restarts
     const idx = meds.findIndex(x=>x.id===editId);
     meds[idx]=m; showChanges(`Updated <b>${esc(m.name)} ${esc(m.strength)}</b>.`);
     finishAdd(); return;
@@ -472,6 +545,7 @@ function confirmMed(){
   if(dup){
     const ok = confirm(`You already have "${dup.name} ${dup.strength}".\n\nUpdate that one (recommended for a refill) instead of adding a duplicate?\n\nOK = update existing · Cancel = add as separate entry`);
     if(ok){
+      keepWindow(dup);            // refill of an existing med → extend its schedule
       m.id = dup.id;
       meds[meds.findIndex(x=>x.id===dup.id)] = m;
       showChanges(`Updated <b>${esc(m.name)} ${esc(m.strength)}</b> (count/refill refreshed) — no duplicate added.`);
@@ -693,13 +767,19 @@ function parseDoc(txt){
       const form = (head.match(/\(([^)]+)\)\s*$/)||[])[1]||'';
       head = head.replace(/\(([^)]+)\)\s*$/,'').trim();
       const sm = head.match(/(.+?)\s+(\d+(?:\.\d+)?\s?(?:mg|mcg|g|ml|units?))\s*$/i);
-      cur = {name:'',strength:'',form:form,dir:'',times:[],count:0,refills:'',perDay:0,impliedDoses:null,extraDose:false,buffer:7,rx:'',pharm:'',stopped:/stopped/i.test(line),approved:false};
+      cur = {name:'',strength:'',form:form,dir:'',times:[],count:0,refills:'',perDay:0,impliedDoses:null,extraDose:false,buffer:7,rx:'',pharm:'',stopped:/stopped/i.test(line),approved:false,priorStart:null,priorEnd:null};
       if(sm){ cur.name=sm[1].trim(); cur.strength=sm[2].trim(); } else { cur.name=head; }
       continue;
     }
     if(!cur) continue;
     let m;
-    if(m=line.match(/take at:\s*(.+)/i)) cur.times = m[1].split(',').map(s=>s.trim()).filter(Boolean);
+    if(m=line.match(/reminders:\s*(.*?)\s+daily/i)){
+      const tms=m[1].split(',').map(s=>s.trim()).filter(Boolean);
+      if(tms.length && !cur.times.length) cur.times=tms;
+      const iso=line.match(/\[(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})\]/);
+      if(iso){ cur.priorStart=parseISO(iso[1]); cur.priorEnd=parseISO(iso[2]); }
+    }
+    else if(m=line.match(/take at:\s*(.+)/i)) cur.times = m[1].split(',').map(s=>s.trim()).filter(Boolean);
     else if(m=line.match(/directions:\s*(.+)/i)) cur.dir=m[1].trim();
     else if(m=line.match(/count:\s*(\d+(?:\.\d+)?)/i)) cur.count=parseFloat(m[1]);
     else if(m=line.match(/refills left:\s*(\d+)/i)) cur.refills=m[1];
@@ -779,7 +859,7 @@ function buildDocText(){
   let s = `═══ MY MEDICATIONS & SUPPLEMENTS — as of ${fmtDate(today)} ═══\n`;
   s += `Patient-reported. Not medical advice. Keep this private.\n\n`;
   active.forEach(m=>{
-    const rd=refillDate(m);
+    const rd=refillReminderDate(m);
     s += `• ${m.name}${m.strength?' '+m.strength:''}${m.form?' ('+m.form+')':''}\n`;
     if(m.times.length) s += `   Take at: ${m.times.join(', ')}\n`;
     if(m.dir) s += `   Directions: ${m.dir}\n`;
@@ -787,6 +867,12 @@ function buildDocText(){
     if(m.refills) s += `   Refills left: ${m.refills}\n`;
     if(m.extraDose) s += `   ** EXTRA DOSE ADDED BY YOU: you set ${m.perDay} dose(s)/day; the directions indicated ${m.impliedDoses}. Not from the prescriber. **\n`;
     const dpd=dosesPerDay(m); if(dpd) s += `   Doses per day: ${dpd}\n`;
+    // Alarm window — date/time + start → end. Read back on paste so a later resupply
+    // appends to the end instead of stacking a duplicate alarm. Keep the [ISO..ISO] tag.
+    const pl=m._plan;
+    if(pl && m.times.length){
+      s += `   Reminders: ${m.times.join(', ')} daily · ${fmtDate(pl.covStart)} → ${fmtDate(pl.covEnd)}  [${fmtISO(pl.covStart)}..${fmtISO(pl.covEnd)}]\n`;
+    }
     if(rd) s += `   Refill reminder: ${fmtDate(rd)}\n`;
     if(m.rx) s += `   Rx# ${m.rx}${m.pharm?' · '+m.pharm:''}\n`;
     else if(m.pharm) s += `   Pharmacy: ${m.pharm}\n`;
@@ -800,7 +886,7 @@ function buildDocText(){
   if(timeSet.size){ s += `─── SET THESE ALARMS ───\n ${[...timeSet].join('  ·  ')}\n\n`; }
 
   // refill reminders
-  const refills = active.map(m=>({m,rd:refillDate(m)})).filter(x=>x.rd).sort((a,b)=>a.rd-b.rd);
+  const refills = active.map(m=>({m,rd:refillReminderDate(m)})).filter(x=>x.rd).sort((a,b)=>a.rd-b.rd);
   if(refills.length){ s += `─── REFILL REMINDERS (set a calendar alert) ───\n`; refills.forEach(x=>s+=` ${fmtDate(x.rd)} — ${x.m.name}\n`); s+=`\n`; }
 
   s += `(Created with Pill Pal — this tool stores nothing. Keep your own copy.)\n`;
@@ -808,6 +894,7 @@ function buildDocText(){
 }
 function generateDoc(){
   step='output'; updateStepper();
+  computePlans();              // resolve each med's reminder window before writing the text
   const text = buildDocText();
   $('doc').value = text;
   $('printArea').innerHTML = '<pre style="white-space:pre-wrap;font-size:13px">'+esc(text)+'</pre>';
@@ -842,44 +929,49 @@ function to24(t){ // "8:00 AM" -> {h,m}
 }
 function downloadICS(){
   const discreet = $('icsPrivate') ? $('icsPrivate').checked : true;
-  const today=new Date(); let ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Pill Pal//EN\r\nCALSCALE:GREGORIAN\r\n';
+  // Resolve each med's reminder window (handles refills appending to the end).
+  const {today, horizon} = computePlans();
+  let ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Pill Pal//EN\r\nCALSCALE:GREGORIAN\r\n';
   const stamp = today.getFullYear()+pad(today.getMonth()+1)+pad(today.getDate())+'T000000';
-  // Reminders are NOT infinite: they run only to the end of this month (or next month if little
-  // time is left), so the user comes back and refreshes. A med stops sooner if its supply runs out.
-  let horizon = new Date(today.getFullYear(), today.getMonth()+1, 0);
-  if((horizon - today)/86400000 < 10) horizon = new Date(today.getFullYear(), today.getMonth()+2, 0);
-  const untilStr = d => d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T235959';
-  meds.filter(m=>!m.stopped).forEach((m,i)=>{
+  const dstr = d => d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate());
+  const untilStr = d => dstr(d)+'T235959';
+  meds.filter(m=>!m.stopped).forEach((m)=>{
+    const pl=m._plan; if(!pl) return;
     const nameStr = icsSafe(m.name)+(m.strength?(' '+icsSafe(m.strength)):'');
-    // Alarms last exactly as long as the supply: COUNT = days = floor(doses on hand / doses per day),
-    // so the total number of alarms ≈ the doses they have left. No supply entered → month-end fallback.
-    const dpd = dosesPerDay(m);
-    const days = (m.count>0 && dpd>0) ? Math.max(1, Math.floor(m.count/dpd)) : 0;
-    const rrule = days>0 ? ('RRULE:FREQ=DAILY;COUNT='+days)
-                         : ('RRULE:FREQ=DAILY;UNTIL='+untilStr(horizon));
-    // daily take-time reminders — each carries an alarm so the phone actually alerts
-    m.times.forEach((t,j)=>{
-      const hm=to24(t); if(!hm) return;
-      const dt = today.getFullYear()+pad(today.getMonth()+1)+pad(today.getDate())+'T'+pad(hm.h)+pad(hm.m)+'00';
-      // discreet: neutral title/alarm so the lock screen shows nothing sensitive;
-      // the real name lives in the event body (DESCRIPTION), seen only when opened.
-      const title = discreet ? 'Personal reminder' : ('Take '+nameStr);
-      const alarm = discreet ? 'Personal reminder' : ('Time to take '+nameStr);
-      const body  = discreet ? ('Take '+nameStr+(m.dir?(' \\, '+icsSafe(m.dir)):'')) : (m.dir?icsSafe(m.dir):'');
-      ics+='BEGIN:VEVENT\r\nUID:mt-'+i+'-'+j+'-'+Math.random().toString(36).slice(2)+'\r\n';
-      ics+='DTSTAMP:'+stamp+'\r\nDTSTART:'+dt+'\r\n'+rrule+'\r\n';
-      ics+='SUMMARY:'+title+'\r\n';
-      if(body) ics+='DESCRIPTION:'+body+'\r\n';
-      // VALARM = the actual alert that pops up / makes a sound, right at dose time
-      ics+='BEGIN:VALARM\r\nACTION:DISPLAY\r\nDESCRIPTION:'+alarm+'\r\nTRIGGER:-PT0M\r\nEND:VALARM\r\n';
-      ics+='END:VEVENT\r\n';
-    });
-    // refill reminder (single, all-day) — alarm at 9 AM that morning
-    const rd=refillDate(m); if(rd){
-      const d=rd.getFullYear()+pad(rd.getMonth()+1)+pad(rd.getDate());
+    const sl = slug(m);
+    // Daily dose alarms — written ONLY for the new (appended) slice of the window.
+    // emitStart===null means the current supply already covers it, so we add nothing
+    // and the user can't end up with two alarms on the same day for the same drug.
+    if(pl.emitStart){
+      const ds = dstr(pl.emitStart);
+      const rrule = pl.bounded ? ('RRULE:FREQ=DAILY;COUNT='+pl.emitDays)
+                               : ('RRULE:FREQ=DAILY;UNTIL='+untilStr(pl.emitEnd||horizon));
+      m.times.forEach((t,j)=>{
+        const hm=to24(t); if(!hm) return;
+        const dt = ds+'T'+pad(hm.h)+pad(hm.m)+'00';
+        // discreet: neutral title/alarm so the lock screen shows nothing sensitive;
+        // the real name lives in the event body (DESCRIPTION), seen only when opened.
+        const title = discreet ? 'Personal reminder' : ('Take '+nameStr);
+        const alarm = discreet ? 'Personal reminder' : ('Time to take '+nameStr);
+        const body  = discreet ? ('Take '+nameStr+(m.dir?(' \\, '+icsSafe(m.dir)):'')) : (m.dir?icsSafe(m.dir):'');
+        // Deterministic UID = drug + dose + window start, so re-importing the SAME
+        // file updates the event instead of duplicating it; a later refill makes a
+        // new window (new start) and therefore a new, non-overlapping series.
+        ics+='BEGIN:VEVENT\r\nUID:mt-'+sl+'-'+j+'-'+ds+'@pillpal\r\n';
+        ics+='DTSTAMP:'+stamp+'\r\nDTSTART:'+dt+'\r\n'+rrule+'\r\n';
+        ics+='SUMMARY:'+title+'\r\n';
+        if(body) ics+='DESCRIPTION:'+body+'\r\n';
+        // VALARM = the actual alert that pops up / makes a sound, right at dose time
+        ics+='BEGIN:VALARM\r\nACTION:DISPLAY\r\nDESCRIPTION:'+alarm+'\r\nTRIGGER:-PT0M\r\nEND:VALARM\r\n';
+        ics+='END:VEVENT\r\n';
+      });
+    }
+    // refill reminder (single, all-day) — tied to when THIS supply actually runs out
+    const rd=refillReminderDate(m); if(rd && rd>=today){
+      const d=dstr(rd);
       const rtitle = discreet ? 'Personal reminder' : ('Refill '+nameStr+' soon');
       const ralarm = discreet ? 'Personal reminder' : ('Refill '+nameStr);
-      ics+='BEGIN:VEVENT\r\nUID:rf-'+i+'-'+Math.random().toString(36).slice(2)+'\r\n';
+      ics+='BEGIN:VEVENT\r\nUID:rf-'+sl+'-'+d+'@pillpal\r\n';
       ics+='DTSTAMP:'+stamp+'\r\nDTSTART;VALUE=DATE:'+d+'\r\nSUMMARY:'+rtitle+'\r\n';
       if(discreet) ics+='DESCRIPTION:Refill '+nameStr+' soon\r\n';
       ics+='BEGIN:VALARM\r\nACTION:DISPLAY\r\nDESCRIPTION:'+ralarm+'\r\nTRIGGER:PT9H\r\nEND:VALARM\r\n';
@@ -887,8 +979,8 @@ function downloadICS(){
     }
   });
   // renewal nudge at the horizon so reminders never just silently stop
-  const hz=horizon.getFullYear()+pad(horizon.getMonth()+1)+pad(horizon.getDate());
-  ics+='BEGIN:VEVENT\r\nUID:renew-'+Math.random().toString(36).slice(2)+'\r\n';
+  const hz=dstr(horizon);
+  ics+='BEGIN:VEVENT\r\nUID:pillpal-renew-'+hz+'@pillpal\r\n';
   ics+='DTSTAMP:'+stamp+'\r\nDTSTART;VALUE=DATE:'+hz+'\r\nSUMMARY:⏰ Pill Pal — check your reminders\r\n';
   ics+='DESCRIPTION:Open Pill Pal to review your medications and download fresh reminders for any that have run out.\r\n';
   ics+='BEGIN:VALARM\r\nACTION:DISPLAY\r\nDESCRIPTION:Open Pill Pal to renew your reminders\r\nTRIGGER:PT9H\r\nEND:VALARM\r\n';
