@@ -293,7 +293,7 @@
     <!-- Big, simple reminders card — designed to be usable by someone not tech-comfortable -->
     <div class="card" id="reminderCard" style="border:2px solid var(--brand)">
       <h2 style="font-size:21px">⏰ Turn on your reminders</h2>
-      <p style="font-size:18px;margin:.2em 0 1em">This adds a reminder to your phone for every dose and every refill. Your phone will then beep and remind you at each time — even when this page is closed.</p>
+      <p style="font-size:18px;margin:.2em 0 1em">This adds a reminder to your phone for every dose and every refill — it beeps at each time, even when this page is closed. Each medication's reminders run until its supply runs out (based on the count you entered) — with a refill reminder before then — so the alarms stop on their own when you're out.</p>
       <label style="display:flex;gap:10px;align-items:flex-start;font-size:17px;cursor:pointer;margin:0 0 16px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px">
         <input type="checkbox" id="icsPrivate" checked style="width:auto;margin-top:4px;transform:scale(1.3)">
         <span>Keep my reminders private.
@@ -345,6 +345,7 @@
 /* ===== In-memory state ONLY. Nothing is persisted anywhere. ===== */
 let meds = [];          // {id,name,strength,form,dir,times[],count,perDay,buffer,rx,pharm,stopped,approved}
 let editId = null;      // when editing an existing med
+let editFrom = null;    // 'review' if the edit was launched from the approval screen
 let doseN = 1;          // how many doses per day
 let doseTimes = [];     // chosen time for each dose
 let doseAck = false;    // user ticked "yes, extra dose on purpose"
@@ -376,7 +377,7 @@ function matchExisting(name, strength, exceptId){
 
 /* ---------- the add/confirm form ---------- */
 function showForm(){ $('medForm').classList.remove('hide'); }
-function hideForm(){ $('medForm').classList.add('hide'); clearForm(); }
+function hideForm(){ const back=editFrom; editFrom=null; $('medForm').classList.add('hide'); clearForm(); if(back==='review') goReview(); }
 function clearForm(){
   ['f_name','f_strength','f_dir','f_count','f_refills','f_rx','f_pharm'].forEach(i=>$(i).value='');
   $('f_form').value=''; $('f_buffer').value='7'; editId=null;
@@ -763,7 +764,7 @@ function renderRoster(){
   $('dupeNote').textContent = dupes? `· ⚠ ${dupes} possible duplicate(s)` : '';
 }
 function approveMed(id){ const m=meds.find(x=>x.id===id); if(m){ m.approved=true; renderReview(); } }
-function editFromReview(id){ goBack(); editMed(id); }
+function editFromReview(id){ editFrom='review'; goBack(); editMed(id); }
 function updateGenBtn(){
   const total=meds.length, ok=meds.filter(m=>m.approved).length, allApproved=total>0 && ok===total;
   $('genBtn').disabled = !allApproved;
@@ -843,8 +844,19 @@ function downloadICS(){
   const discreet = $('icsPrivate') ? $('icsPrivate').checked : true;
   const today=new Date(); let ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Pill Pal//EN\r\nCALSCALE:GREGORIAN\r\n';
   const stamp = today.getFullYear()+pad(today.getMonth()+1)+pad(today.getDate())+'T000000';
+  // Reminders are NOT infinite: they run only to the end of this month (or next month if little
+  // time is left), so the user comes back and refreshes. A med stops sooner if its supply runs out.
+  let horizon = new Date(today.getFullYear(), today.getMonth()+1, 0);
+  if((horizon - today)/86400000 < 10) horizon = new Date(today.getFullYear(), today.getMonth()+2, 0);
+  const untilStr = d => d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T235959';
   meds.filter(m=>!m.stopped).forEach((m,i)=>{
     const nameStr = icsSafe(m.name)+(m.strength?(' '+icsSafe(m.strength)):'');
+    // Alarms last exactly as long as the supply: COUNT = days = floor(doses on hand / doses per day),
+    // so the total number of alarms ≈ the doses they have left. No supply entered → month-end fallback.
+    const dpd = dosesPerDay(m);
+    const days = (m.count>0 && dpd>0) ? Math.max(1, Math.floor(m.count/dpd)) : 0;
+    const rrule = days>0 ? ('RRULE:FREQ=DAILY;COUNT='+days)
+                         : ('RRULE:FREQ=DAILY;UNTIL='+untilStr(horizon));
     // daily take-time reminders — each carries an alarm so the phone actually alerts
     m.times.forEach((t,j)=>{
       const hm=to24(t); if(!hm) return;
@@ -855,7 +867,7 @@ function downloadICS(){
       const alarm = discreet ? 'Personal reminder' : ('Time to take '+nameStr);
       const body  = discreet ? ('Take '+nameStr+(m.dir?(' \\, '+icsSafe(m.dir)):'')) : (m.dir?icsSafe(m.dir):'');
       ics+='BEGIN:VEVENT\r\nUID:mt-'+i+'-'+j+'-'+Math.random().toString(36).slice(2)+'\r\n';
-      ics+='DTSTAMP:'+stamp+'\r\nDTSTART:'+dt+'\r\nRRULE:FREQ=DAILY\r\n';
+      ics+='DTSTAMP:'+stamp+'\r\nDTSTART:'+dt+'\r\n'+rrule+'\r\n';
       ics+='SUMMARY:'+title+'\r\n';
       if(body) ics+='DESCRIPTION:'+body+'\r\n';
       // VALARM = the actual alert that pops up / makes a sound, right at dose time
@@ -874,6 +886,13 @@ function downloadICS(){
       ics+='END:VEVENT\r\n';
     }
   });
+  // renewal nudge at the horizon so reminders never just silently stop
+  const hz=horizon.getFullYear()+pad(horizon.getMonth()+1)+pad(horizon.getDate());
+  ics+='BEGIN:VEVENT\r\nUID:renew-'+Math.random().toString(36).slice(2)+'\r\n';
+  ics+='DTSTAMP:'+stamp+'\r\nDTSTART;VALUE=DATE:'+hz+'\r\nSUMMARY:⏰ Pill Pal — check your reminders\r\n';
+  ics+='DESCRIPTION:Open Pill Pal to review your medications and download fresh reminders for any that have run out.\r\n';
+  ics+='BEGIN:VALARM\r\nACTION:DISPLAY\r\nDESCRIPTION:Open Pill Pal to renew your reminders\r\nTRIGGER:PT9H\r\nEND:VALARM\r\n';
+  ics+='END:VEVENT\r\n';
   ics+='END:VCALENDAR\r\n';
   dl('my-medication-reminders.ics', ics, 'text/calendar');
   $('icsMsg').innerHTML = discreet
