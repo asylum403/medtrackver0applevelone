@@ -49,6 +49,14 @@
   button.good{background:var(--good);border-color:var(--good);color:#fff}
   button.ghost{background:#fff;color:var(--brand);border-color:var(--line)}
   button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+  /* three clear "how do you want to add it?" choices — each says what it does */
+  .choices{display:flex;flex-direction:column;gap:10px;margin:4px 0 2px}
+  .choice{display:flex;align-items:center;gap:14px;text-align:left;width:100%;padding:16px 18px}
+  .choice .ch-ico{font-size:26px;line-height:1;flex:0 0 auto}
+  .choice .ch-txt{display:flex;flex-direction:column;gap:3px}
+  .choice .ch-txt b{font-size:19px;font-weight:700;line-height:1.25}
+  .choice .ch-txt small{font-size:14px;font-weight:500;line-height:1.4;color:var(--muted)}
+  .choice.primary .ch-txt small{color:#e4ecfe}
   .pill{display:inline-block;background:#fff;border:1.5px solid var(--line);
     border-radius:999px;padding:11px 18px;margin:6px 8px 0 0;font-size:17px;font-weight:600;cursor:pointer}
   .pill.on{background:var(--brand);border-color:var(--brand);color:#fff}
@@ -157,12 +165,22 @@
     <div class="card">
       <h2>Add a medication or supplement</h2>
       <p class="muted" style="margin:.1em 0 .9em;font-size:16px">Add each one you take. You'll review them and turn on reminders next.</p>
-      <div class="row">
-        <button class="primary" style="flex:1 1 160px" onclick="document.getElementById('photo').click()">📷 Take a photo of the label</button>
+      <div class="choices">
+        <button class="choice primary" onclick="document.getElementById('photo').click()">
+          <span class="ch-ico">📷</span>
+          <span class="ch-txt"><b>Take a photo of the label</b><small>Snap your bottle or pharmacy sheet — we read the details for you</small></span>
+        </button>
         <input id="photo" type="file" accept="image/*" capture="environment" class="hide" onchange="runOCR(event)">
-        <button class="ghost" style="flex:1 1 160px" onclick="showFormManual()">✍️ Type it in</button>
+        <button class="choice" onclick="showFormManual()">
+          <span class="ch-ico">✍️</span>
+          <span class="ch-txt"><b>Type it in by hand</b><small>Enter the details yourself — always works, even offline</small></span>
+        </button>
+        <button class="choice" onclick="showRestore()">
+          <span class="ch-ico">🔄</span>
+          <span class="ch-txt"><b>Refilled or returning? Restore my list</b><small>Picked up a refill, or used Pill Pal before? Paste your saved list back in</small></span>
+        </button>
       </div>
-      <div class="muted" style="font-size:15px;margin-top:6px">📶 Taking a photo needs an internet connection — <b>Wi-Fi works best</b> (faster, no mobile data). Typing it in by hand always works offline.</div>
+      <div class="muted" style="font-size:15px;margin-top:8px">📶 Taking a photo needs an internet connection — <b>Wi-Fi works best</b> (faster, no mobile data). Typing it in by hand always works offline.</div>
       <div id="scanStatus"></div>
 
       <details class="more" style="margin-top:8px">
@@ -255,11 +273,11 @@
 
     <div class="card" id="listCard">
       <h2>Your list (<span id="count">0</span>)</h2>
-      <div id="list"><p class="muted">Nothing yet — tap “Take a photo of the label” or “Type it in” above to start.</p></div>
+      <div id="list"><p class="muted">Nothing yet — pick one of the three buttons above to start: take a photo, type it in, or restore a saved list.</p></div>
     </div>
 
-    <details class="more" style="margin-top:4px">
-      <summary>Returning? Restore a saved list</summary>
+    <details class="more" id="restoreBlock" style="margin-top:4px">
+      <summary>🔄 Refilled or returning? Restore my saved list</summary>
       <p class="muted" style="margin:.4em 0 .6em;font-size:15px">Paste the list you saved last time and we'll rebuild it.</p>
       <textarea id="pasteIn" placeholder="Paste your saved Pill Pal list here…"></textarea>
       <div class="row" style="margin-top:10px">
@@ -448,6 +466,14 @@ function showFormManual(){
   setTimeout(()=>{ try{ name.focus({preventScroll:true}); }catch(e){ name.focus(); } }, 350);
 }
 function hideForm(){ const back=editFrom; editFrom=null; $('medForm').classList.add('hide'); clearForm(); if(back==='review') goReview(); }
+// "Refilled or returning?" — open the restore panel, scroll to it, and focus the
+// paste box so the user lands right on it instead of hunting at the bottom.
+function showRestore(){
+  const d=$('restoreBlock'); d.open=true;
+  d.scrollIntoView({behavior:'smooth', block:'start'});
+  const t=$('pasteIn');
+  setTimeout(()=>{ try{ t.focus({preventScroll:true}); }catch(e){ t.focus(); } }, 350);
+}
 function clearForm(){
   ['f_name','f_strength','f_dir','f_count','f_refills','f_rx','f_pharm'].forEach(i=>$(i).value='');
   $('f_form').value=''; $('f_buffer').value='7'; editId=null;
