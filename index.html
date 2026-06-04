@@ -153,6 +153,8 @@
   .gobox .fl-k{flex:0 0 96px;color:var(--muted);font-weight:600}
   .gobox .fl-v{flex:1;font-weight:600}
   .gobox #goHost .card{margin:18px 0 4px}
+  .gobox .go-rm{text-align:center;margin:8px 0 0}
+  .gobox .go-rm a{cursor:pointer;font-weight:600;font-size:15px}
   /* agreement gate */
   .gate{position:fixed;inset:0;background:rgba(20,30,45,.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}
   .gatebox{background:var(--panel);border:1px solid var(--line);border-radius:18px;max-width:580px;width:100%;padding:24px;max-height:94vh;overflow:auto;box-shadow:0 10px 40px rgba(16,40,70,.25)}
@@ -383,6 +385,7 @@
       <!-- Big, simple reminders card — designed to be usable by someone not tech-comfortable -->
       <div class="card" id="reminderCard" style="border:2px solid var(--brand)">
         <h2 style="font-size:21px">⏰ Turn on your reminders</h2>
+        <div id="stoppedNote"></div>
         <p style="font-size:18px;margin:.2em 0 1em">This adds a reminder to your phone for every dose and every refill — it beeps at each time, even when this page is closed. Each medication's reminders run until its supply runs out (based on the count you entered) — with a refill reminder before then — so the alarms stop on their own when you're out.</p>
         <p class="muted" style="font-size:15px;margin:.2em 0 1em;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 14px">💊 <b>Picked up a refill?</b> Paste your saved list back in first (under <i>"Returning? Restore a saved list"</i> on the Add screen) and update the count. The new reminders pick up <b>where your current ones end</b> — so you won't get two alarms at the same time for the same medicine.</p>
         <label style="display:flex;gap:10px;align-items:flex-start;font-size:17px;cursor:pointer;margin:0 0 16px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px">
@@ -399,6 +402,15 @@
           <p style="margin:16px 0 0;font-size:15px"><a href="#" id="otherLink" onclick="toggleDevice();return false;"></a></p>
           <p class="muted" style="margin:10px 0 0;font-size:14px">Tip: if a relative or pharmacist is nearby, this takes them about 30 seconds to help with.</p>
         </div>
+
+        <details class="more" style="margin-top:12px">
+          <summary>🗂️ How do I remove all these reminders later?</summary>
+          <ul style="margin:8px 0 0;padding-left:22px;font-size:16px;line-height:1.65">
+            <li><b>On a computer or in Google Calendar:</b> these import as their own calendar named “<b class="calname">Personal reminders</b>”. To wipe them <b>all at once</b>, just delete that calendar — your other events are untouched. (On a computer, import lets you put them in their own calendar; in Google Calendar, make a calendar called that first, then import into it.)</li>
+            <li><b>On an iPhone:</b> they go into your main calendar. To stop one repeating alarm, tap it → <b>Delete</b> → choose <b>“Delete All Events”</b> (not just this one) — once for each reminder time.</li>
+            <li><b>Stopped just one medicine?</b> Mark it “stopped” on your list and download again — the new file asks your calendar to clear that one’s old alarms.</li>
+          </ul>
+        </details>
       </div>
       <button class="backbtn goback" onclick="outHub()"><span class="ar">←</span> Back to the menu</button>
     </div>
@@ -687,7 +699,12 @@ function editMed(id){
   showForm(); window.scrollTo({top:0,behavior:'smooth'});
 }
 function toggleStop(id){ const m=meds.find(x=>x.id===id); if(m){ m.stopped=!m.stopped; m.approved=false; renderList(); } }
-function removeMed(id){ if(confirm('Remove this medication from the list?')){ meds=meds.filter(x=>x.id!==id); renderList(); } }
+function removeMed(id){
+  const m=meds.find(x=>x.id===id); if(!m) return;
+  // Removing can't clear alarms already on the phone — steer those cases to "Mark stopped".
+  const warn = m.priorStart ? '\n\nThis medicine already has alarms on your phone. Removing it here will NOT erase them. To clear them, tap “Mark stopped” instead, then download your reminders again.' : '';
+  if(confirm('Remove '+(m.name||'this medication')+' from the list?'+warn)){ meds=meds.filter(x=>x.id!==id); renderList(); }
+}
 
 function esc(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
@@ -957,11 +974,22 @@ function approveRender(){
       <button class="go-big" onclick="approveFix()">✏️ Change something</button>
     </div>
     <p class="go-back"><a onclick="approveBack()">← ${flow.idx>0?'Back to the one before':'Back to my medicines'}</a></p>
+    <p class="go-rm"><a class="danger" onclick="approveRemove()">🗑 Remove this medicine from my list</a></p>
     ${flowSkipLink()}`;
   $('guideOverlay').scrollTop=0;
 }
 function approveYes(){ meds[flow.idx].approved=true; flow.idx++; approveRender(); }
 function approveBack(){ if(flow.idx>0){ flow.idx--; approveRender(); } else { flowExit(); } }
+function approveRemove(){
+  const m=meds[flow.idx]; if(!m) return;
+  // If it already has alarms on the phone, deleting here can't erase them — steer to "stopped".
+  const warn = m.priorStart ? '\n\nThis medicine already has alarms on your phone. Removing it here will NOT erase them. To clear them, use “Mark stopped” on your list instead, then download your reminders again.' : '';
+  if(!confirm('Remove '+(m.name||'this medicine')+' from your list?'+warn)) return;
+  meds.splice(flow.idx,1);
+  renderList();                       // keep the builder list in sync
+  if(!meds.length){ flowExit(); return; }
+  approveRender();                    // if idx is now past the end, this routes to "ready"
+}
 function approveFix(){
   flow.editing=true;
   editMed(meds[flow.idx].id);                 // fill the real form with this med
@@ -987,6 +1015,12 @@ function buildOutputs(){
   $('doc').value = text;
   $('printArea').innerHTML = '<pre style="white-space:pre-wrap;font-size:13px">'+esc(text)+'</pre>';
   if(!navigator.share) $('shareBtn').classList.add('hide');
+  // Warn about meds the user stopped that already had reminders on the phone.
+  const stoppedHad = meds.filter(m=>m.stopped && m.priorStart);
+  const sn=$('stoppedNote');
+  if(sn) sn.innerHTML = stoppedHad.length
+    ? `<div class="warnbox" style="margin:0 0 14px">⏹ You stopped ${stoppedHad.length} medicine${stoppedHad.length>1?'s':''} that had reminders: <b>${stoppedHad.map(m=>esc(m.name)).join(', ')}</b>. This file asks your calendar to remove their old alarms — <b>after you import it</b>, those alarms should disappear. If any are still there, open your calendar and delete them by hand.</div>`
+    : '';
   renderHowto();
 }
 function flowSkipLink(){ return `<p class="go-skip"><a onclick="flowExit()">✕ Close — back to my medicines</a></p>`; }
@@ -1163,7 +1197,11 @@ function downloadICS(){
   const discreet = $('icsPrivate') ? $('icsPrivate').checked : true;
   // Resolve each med's reminder window (handles refills appending to the end).
   const {today, horizon} = computePlans();
+  // Put everything in ONE named calendar so it can be removed as a group. In private mode
+  // the name stays neutral ("Personal reminders") so the calendar list reveals nothing medical.
+  const calName = discreet ? 'Personal reminders' : 'Pill Pal reminders';
   let ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Pill Pal//EN\r\nCALSCALE:GREGORIAN\r\n';
+  ics+='X-WR-CALNAME:'+icsSafe(calName)+'\r\nX-WR-CALDESC:Reminders you created. Delete this whole calendar to remove them all at once.\r\n';
   const stamp = today.getFullYear()+pad(today.getMonth()+1)+pad(today.getDate())+'T000000';
   const dstr = d => d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate());
   const untilStr = d => dstr(d)+'T235959';
@@ -1216,18 +1254,42 @@ function downloadICS(){
       ics+='END:VEVENT\r\n';
     }
   });
-  // renewal nudge at the horizon so reminders never just silently stop
+  // Cancel alarms for meds the user STOPPED that previously had reminders on the phone.
+  // We rebuild the original event UIDs from the saved window [priorStart..priorEnd] and mark
+  // them CANCELLED, so re-importing this file clears them. Best-effort: most calendar apps
+  // honor STATUS:CANCELLED on import; the on-screen note tells the user how to clear any leftover.
+  meds.filter(m=>m.stopped && m.priorStart && m.priorEnd).forEach(m=>{
+    const sl=slug(m); const cs=dstr(m.priorStart);
+    const days=Math.max(1, Math.round((m.priorEnd - m.priorStart)/86400000)+1);
+    (m.times||[]).forEach((t,j)=>{
+      const hm=to24(t); if(!hm) return;
+      const dt=cs+'T'+pad(hm.h)+pad(hm.m)+'00';
+      ics+='BEGIN:VEVENT\r\nUID:mt-'+sl+'-'+j+'-'+cs+'@pillpal\r\n';
+      ics+='DTSTAMP:'+stamp+'\r\nDTSTART:'+dt+'\r\nRRULE:FREQ=DAILY;COUNT='+days+'\r\n';
+      ics+='SEQUENCE:1\r\nSTATUS:CANCELLED\r\nSUMMARY:Cancelled\r\nEND:VEVENT\r\n';
+    });
+    const rfd=dstr(addDaysD(m.priorEnd, -(m.buffer||0)));
+    ics+='BEGIN:VEVENT\r\nUID:rf-'+sl+'-'+rfd+'@pillpal\r\n';
+    ics+='DTSTAMP:'+stamp+'\r\nDTSTART;VALUE=DATE:'+rfd+'\r\nSEQUENCE:1\r\nSTATUS:CANCELLED\r\nSUMMARY:Cancelled\r\nEND:VEVENT\r\n';
+  });
+  // renewal nudge at the horizon so reminders never just silently stop (neutral in private mode)
   const hz=dstr(horizon);
+  const renTitle = discreet ? '⏰ Check your reminders' : '⏰ Pill Pal — check your reminders';
+  const renDesc  = discreet ? 'Open your reminders app to refresh any reminders that have run out.'
+                            : 'Open Pill Pal to review your medications and download fresh reminders for any that have run out.';
   ics+='BEGIN:VEVENT\r\nUID:pillpal-renew-'+hz+'@pillpal\r\n';
-  ics+='DTSTAMP:'+stamp+'\r\nDTSTART;VALUE=DATE:'+hz+'\r\nSUMMARY:⏰ Pill Pal — check your reminders\r\n';
-  ics+='DESCRIPTION:Open Pill Pal to review your medications and download fresh reminders for any that have run out.\r\n';
-  ics+='BEGIN:VALARM\r\nACTION:DISPLAY\r\nDESCRIPTION:Open Pill Pal to renew your reminders\r\nTRIGGER:PT9H\r\nEND:VALARM\r\n';
+  ics+='DTSTAMP:'+stamp+'\r\nDTSTART;VALUE=DATE:'+hz+'\r\nSUMMARY:'+renTitle+'\r\n';
+  ics+='DESCRIPTION:'+renDesc+'\r\n';
+  ics+='BEGIN:VALARM\r\nACTION:DISPLAY\r\nDESCRIPTION:'+renTitle+'\r\nTRIGGER:PT9H\r\nEND:VALARM\r\n';
   ics+='END:VEVENT\r\n';
   ics+='END:VCALENDAR\r\n';
   dl('my-medication-reminders.ics', ics, 'text/calendar');
-  $('icsMsg').innerHTML = discreet
-    ? '✓ <b>Downloaded</b> (names kept private). Now follow the simple steps below to finish.'
-    : '✓ <b>Downloaded.</b> Now follow the simple steps below to finish.';
+  // keep the on-screen "remove them all" tip in sync with the calendar name we just used
+  document.querySelectorAll('.calname').forEach(e=>e.textContent=calName);
+  $('icsMsg').innerHTML = (discreet
+    ? '✓ <b>Downloaded</b> (names kept private).'
+    : '✓ <b>Downloaded.</b>')
+    + ` They go into a calendar called <b>“${esc(calName)}”</b>. Now follow the simple steps below to finish.`;
 }
 function icsSafe(s){ return (s||'').replace(/[,;\\]/g,'\\$&').replace(/\n/g,' '); }
 
