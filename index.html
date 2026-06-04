@@ -474,12 +474,22 @@ function matchExisting(name, strength, exceptId){
 
 /* ---------- the add/confirm form ---------- */
 function showForm(){ $('medForm').classList.remove('hide'); }
+// Scroll an element to just BELOW the sticky header, so the header never covers
+// its top. We measure the header live (it grows when the subtitle wraps on a
+// phone), so this is correct on every screen size. Used by the guide, the form,
+// the scan result, and the restore panel so every step lands where you can read it.
+function scrollBelowHeader(el, gap){
+  if(!el) return;
+  const header=document.querySelector('header');
+  const hh = header ? header.getBoundingClientRect().height : 0;
+  const y = el.getBoundingClientRect().top + window.pageYOffset - hh - (gap==null?14:gap);
+  window.scrollTo({top:Math.max(0, y), behavior:'smooth'});
+}
 // "Type it in" — reveal the form, scroll it into view, and put the cursor in the
 // first field so the user lands right where they type instead of hunting for it.
 function showFormManual(){
   showForm();
-  const f=$('medForm');
-  f.scrollIntoView({behavior:'smooth', block:'start'});
+  scrollBelowHeader($('medForm'));
   const name=$('f_name');
   // focus after the scroll settles (and without yanking the page on mobile)
   setTimeout(()=>{ try{ name.focus({preventScroll:true}); }catch(e){ name.focus(); } }, 350);
@@ -489,7 +499,7 @@ function hideForm(){ const back=editFrom; editFrom=null; $('medForm').classList.
 // paste box so the user lands right on it instead of hunting at the bottom.
 function showRestore(){
   const d=$('restoreBlock'); d.open=true;
-  d.scrollIntoView({behavior:'smooth', block:'start'});
+  scrollBelowHeader(d);
   const t=$('pasteIn');
   setTimeout(()=>{ try{ t.focus({preventScroll:true}); }catch(e){ t.focus(); } }, 350);
 }
@@ -669,6 +679,7 @@ function runOCR(ev){
 
 async function scanLabel(file){
   showForm();
+  scrollBelowHeader($('scanStatus')); // carry the user down to the result — status line + the form right below it
   if(navigator.onLine===false){
     $('scanStatus').textContent='📶 You appear to be offline. Taking a photo of a label needs an internet connection (Wi-Fi works best). Please type the details in below, or try again once you\'re connected.';
     return;
@@ -1104,13 +1115,7 @@ function guideShow(html){
 // Scroll the guide panel to just below the sticky header. We MEASURE the header
 // live (its height changes when the subtitle wraps on a phone), so the panel's
 // title is never hidden underneath it.
-function guideToPanel(){
-  const panel=$('guidePanel'); if(!panel) return;
-  const header=document.querySelector('header');
-  const hh = header ? header.getBoundingClientRect().height : 0;
-  const y = panel.getBoundingClientRect().top + window.pageYOffset - hh - 14; // 14px breathing room
-  window.scrollTo({top:Math.max(0, y), behavior:'smooth'});
-}
+function guideToPanel(){ scrollBelowHeader($('guidePanel')); }
 function guideRender(){
   if(guide.step==='prev'){
     guideShow(
@@ -1144,7 +1149,7 @@ function guideRender(){
 }
 function guidePrev(hasList){
   if(hasList){ guide.step='restore'; guideRender(); showRestore(); }
-  else { guide.step='addchoice'; guideRender(); }
+  else { guide.step='addchoice'; guideRender(); guideToPanel(); }
 }
 function guideToAdd(){ guide.step='addchoice'; guideRender(); guideToPanel(); }
 function guideChoose(how){
