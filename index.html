@@ -57,6 +57,17 @@
   .choice .ch-txt b{font-size:19px;font-weight:700;line-height:1.25}
   .choice .ch-txt small{font-size:14px;font-weight:500;line-height:1.4;color:var(--muted)}
   .choice.primary .ch-txt small{color:#e4ecfe}
+  /* "Walk with me" — friendly opt-in guide. Additive overlay; never changes the add/save logic. */
+  .choice.guide-start{background:#eef5ff;border:2px solid var(--brand);color:var(--ink)}
+  .choice.guide-start .ch-txt b{color:var(--brand)}
+  .guidewrap{border:2px solid var(--brand);background:#f3f8ff;border-radius:16px;
+    padding:18px 20px;margin:14px 0;box-shadow:var(--shadow)}
+  .guidewrap h2{margin:0 0 8px;font-size:20px;font-weight:800}
+  .guidewrap .guide-q{font-size:18px;line-height:1.5;margin:0 0 14px}
+  .guidewrap .guide-btns{display:flex;gap:10px;flex-wrap:wrap}
+  .guidewrap .guide-btns button{flex:0 1 auto}
+  .guidewrap .guide-skip{margin:14px 0 0;font-size:14px}
+  .guidewrap .guide-skip a{cursor:pointer;font-weight:600}
   .pill{display:inline-block;background:#fff;border:1.5px solid var(--line);
     border-radius:999px;padding:11px 18px;margin:6px 8px 0 0;font-size:17px;font-weight:600;cursor:pointer}
   .pill.on{background:var(--brand);border-color:var(--brand);color:#fff}
@@ -162,10 +173,17 @@
   <!-- STEP 1: build / load -->
   <section id="builder">
 
+    <!-- "Walk with me" guide panel. Hidden until the user opts in; content rendered by guideRender(). -->
+    <div id="guidePanel" class="guidewrap hide"></div>
+
     <div class="card">
       <h2>Add a medication or supplement</h2>
       <p class="muted" style="margin:.1em 0 .9em;font-size:16px">Add each one you take. You'll review them and turn on reminders next.</p>
       <div class="choices">
+        <button class="choice guide-start" onclick="guideStart()">
+          <span class="ch-ico">🤝</span>
+          <span class="ch-txt"><b>Walk with me through this</b><small>New here? I'll guide you one simple step at a time — and check back after each one.</small></span>
+        </button>
         <button class="choice primary" onclick="document.getElementById('photo').click()">
           <span class="ch-ico">📷</span>
           <span class="ch-txt"><b>Take a photo of the label</b><small>Snap your bottle or pharmacy sheet — we read the details for you</small></span>
@@ -582,7 +600,7 @@ function confirmMed(){
   showChanges(`Added <b>${esc(m.name)} ${esc(m.strength)}</b>.`);
   finishAdd();
 }
-function finishAdd(){ hideForm(); renderList(); }
+function finishAdd(){ hideForm(); renderList(); guideOnAdd(); /* no-op unless the guide is running */ }
 
 function editMed(id){
   const m = meds.find(x=>x.id===id); if(!m) return;
@@ -778,6 +796,7 @@ function loadPasted(){
   showChanges(`Loaded your list: ${added} added${updated?`, ${updated} updated`:''}. Now add anything new.`);
   renderList();
   window.scrollTo({top:document.getElementById('listCard').offsetTop-70,behavior:'smooth'});
+  guideOnRestore(); /* no-op unless the guide is running */
 }
 function parseDoc(txt){
   const out=[]; const lines = txt.split('\n');
@@ -1054,6 +1073,88 @@ function renderHowto(){
 function toggleDevice(){
   howtoDevice = howtoDevice==='ios' ? 'android' : 'ios'; // toggle between the two phone guides
   renderHowto();
+}
+
+/* ---------- "Walk with me through this" — friendly guided path ----------
+   PURELY ADDITIVE. Every step DRIVES the existing buttons/functions
+   (showRestore, the #photo input, showFormManual, confirmMed→finishAdd,
+   loadPasted, goReview). It never re-implements how a med is saved or how a
+   reminder is scheduled — so it cannot change those behaviors. It only holds
+   UI state (which question is showing) and steers the user through screens
+   that already exist. The two hooks below (guideOnAdd/guideOnRestore) are
+   called from the real save paths and no-op unless the guide is running. */
+const guide = { active:false, step:null, awaitingAdd:false };
+
+function guideStart(){
+  guide.active=true; guide.awaitingAdd=false; guide.step='prev';
+  guideRender();
+  $('guidePanel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+function guideExit(){
+  guide.active=false; guide.awaitingAdd=false; guide.step=null;
+  const p=$('guidePanel'); p.classList.add('hide'); p.innerHTML='';
+}
+function guideShow(html){
+  const p=$('guidePanel');
+  p.innerHTML = `<h2>🤝 I'm right here with you</h2>${html}`
+    + `<p class="guide-skip muted"><a onclick="guideExit()">I'm okay on my own — hide this</a></p>`;
+  p.classList.remove('hide');
+}
+function guideToPanel(){ $('guidePanel').scrollIntoView({behavior:'smooth', block:'start'}); }
+function guideRender(){
+  if(guide.step==='prev'){
+    guideShow(
+      `<p class="guide-q">First — <b>do you already have a saved Pill Pal list</b> from before, or did you just pick up a refill?</p>`
+      +`<div class="guide-btns">`
+      +`<button class="primary" onclick="guidePrev(true)">Yes, I have one</button>`
+      +`<button class="ghost" onclick="guidePrev(false)">No, I'm starting fresh</button>`
+      +`</div>`);
+  } else if(guide.step==='restore'){
+    guideShow(
+      `<p class="guide-q">Wonderful. Paste your saved list into the box below and tap <b>Load my list</b> — I'll pick things up right after.</p>`
+      +`<div class="guide-btns"><button class="ghost" onclick="guideToAdd()">Actually, let me add one by hand instead</button></div>`);
+  } else if(guide.step==='addchoice'){
+    guideShow(
+      `<p class="guide-q">Let's add a medication or supplement. <b>How would you like to do this one?</b></p>`
+      +`<div class="guide-btns">`
+      +`<button class="primary" onclick="guideChoose('scan')">📷 Take a photo of the label</button>`
+      +`<button class="ghost" onclick="guideChoose('manual')">✍️ Type it in myself</button>`
+      +`</div>`);
+  } else if(guide.step==='inprogress'){
+    guideShow(
+      `<p class="guide-q">Take your time filling in the details below, then tap the green <b>✓ Save to my list</b> button. I'll check back the moment you've saved.</p>`);
+  } else if(guide.step==='another'){
+    guideShow(
+      `<p class="guide-q">✓ Saved — nicely done! <b>Do you have another medication or supplement to add?</b></p>`
+      +`<div class="guide-btns">`
+      +`<button class="primary" onclick="guideAnother(true)">Yes, add another</button>`
+      +`<button class="good" onclick="guideAnother(false)">No, I'm done — review my list ›</button>`
+      +`</div>`);
+  }
+}
+function guidePrev(hasList){
+  if(hasList){ guide.step='restore'; guideRender(); showRestore(); }
+  else { guide.step='addchoice'; guideRender(); }
+}
+function guideToAdd(){ guide.step='addchoice'; guideRender(); guideToPanel(); }
+function guideChoose(how){
+  guide.awaitingAdd=true; guide.step='inprogress'; guideRender();
+  if(how==='scan'){ $('photo').click(); }   // opens the camera/picker, then your normal scan→form flow
+  else { showFormManual(); }                // reveals + focuses the manual form
+}
+function guideAnother(more){
+  if(more){ guide.step='addchoice'; guide.awaitingAdd=false; guideRender(); guideToPanel(); }
+  else { guideExit(); goReview(); }          // hand off to the existing approval flow
+}
+// Hooks fired by the EXISTING save paths. Guarded: do nothing unless the guide
+// is running and is actually waiting on an add — so edits/normal use are unaffected.
+function guideOnAdd(){
+  if(!guide.active || !guide.awaitingAdd) return;
+  guide.awaitingAdd=false; guide.step='another'; guideRender(); guideToPanel();
+}
+function guideOnRestore(){
+  if(!guide.active) return;
+  guide.awaitingAdd=false; guide.step='another'; guideRender(); guideToPanel();
 }
 
 renderList();
