@@ -1089,7 +1089,7 @@ const guide = { active:false, step:null, awaitingAdd:false };
 function guideStart(){
   guide.active=true; guide.awaitingAdd=false; guide.step='prev';
   guideRender();
-  $('guidePanel').scrollIntoView({behavior:'smooth', block:'start'});
+  guideToPanel();
 }
 function guideExit(){
   guide.active=false; guide.awaitingAdd=false; guide.step=null;
@@ -1101,7 +1101,16 @@ function guideShow(html){
     + `<p class="guide-skip muted"><a onclick="guideExit()">I'm okay on my own — hide this</a></p>`;
   p.classList.remove('hide');
 }
-function guideToPanel(){ $('guidePanel').scrollIntoView({behavior:'smooth', block:'start'}); }
+// Scroll the guide panel to just below the sticky header. We MEASURE the header
+// live (its height changes when the subtitle wraps on a phone), so the panel's
+// title is never hidden underneath it.
+function guideToPanel(){
+  const panel=$('guidePanel'); if(!panel) return;
+  const header=document.querySelector('header');
+  const hh = header ? header.getBoundingClientRect().height : 0;
+  const y = panel.getBoundingClientRect().top + window.pageYOffset - hh - 14; // 14px breathing room
+  window.scrollTo({top:Math.max(0, y), behavior:'smooth'});
+}
 function guideRender(){
   if(guide.step==='prev'){
     guideShow(
