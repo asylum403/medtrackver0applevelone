@@ -42,12 +42,18 @@
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(47,111,237,.15)}
   textarea{min-height:90px;resize:vertical}
   .col{flex:1 1 160px;min-width:140px}
-  button{cursor:pointer;border:1.5px solid var(--line);background:#fff;color:var(--ink);
+  button{cursor:pointer;border:2px solid #aebccb;background:#fff;color:var(--ink);
     border-radius:12px;padding:15px 20px;font-weight:700;font-size:19px;min-height:54px}
   button:hover{border-color:var(--brand)}
   button.primary{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:var(--shadow)}
   button.good{background:var(--good);border-color:var(--good);color:#fff}
-  button.ghost{background:#fff;color:var(--brand);border-color:var(--line)}
+  /* secondary buttons: clearly outlined + faint fill so they read as tappable, not as text */
+  button.ghost{background:#eef3f9;color:var(--brand);border-color:#8aa0b4}
+  /* "go back" navigation: solid dark slate, high contrast, unmistakably a button */
+  button.backbtn{background:var(--ink);color:#fff;border-color:var(--ink);
+    display:inline-flex;align-items:center;gap:9px;font-size:18px;padding:14px 22px;min-height:58px}
+  button.backbtn:hover{background:#0f1a26;border-color:#0f1a26}
+  button.backbtn .ar{font-size:24px;line-height:1}
   button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
   /* three clear "how do you want to add it?" choices — each says what it does */
   .choices{display:flex;flex-direction:column;gap:10px;margin:4px 0 2px}
@@ -55,7 +61,7 @@
   .choice .ch-ico{font-size:26px;line-height:1;flex:0 0 auto}
   .choice .ch-txt{display:flex;flex-direction:column;gap:3px}
   .choice .ch-txt b{font-size:19px;font-weight:700;line-height:1.25}
-  .choice .ch-txt small{font-size:14px;font-weight:500;line-height:1.4;color:var(--muted)}
+  .choice .ch-txt small{font-size:16px;font-weight:500;line-height:1.45;color:var(--muted)}
   .choice.primary .ch-txt small{color:#e4ecfe}
   /* "Walk with me" — friendly opt-in guide. Entry button + full-screen overlay.
      The overlay covers the busy page so the user sees ONE thing at a time. */
@@ -137,7 +143,7 @@
   #printArea{display:none} /* only used for printing; kept off-screen so the output page stays clean */
   @media print{ body *{visibility:hidden} #printArea,#printArea *{visibility:visible}
     #printArea{display:block;position:absolute;left:0;top:0;width:100%;color:#000} }
-  .goback{margin:6px 0 12px;font-size:16px}
+  .goback{margin:10px 0 16px}
   /* agreement gate */
   .gate{position:fixed;inset:0;background:rgba(20,30,45,.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}
   .gatebox{background:var(--panel);border:1px solid var(--line);border-radius:18px;max-width:580px;width:100%;padding:24px;max-height:94vh;overflow:auto;box-shadow:0 10px 40px rgba(16,40,70,.25)}
@@ -364,7 +370,7 @@
 
     <!-- SECTION 1: reminders -->
     <div id="outReminders" class="hide">
-      <button class="ghost goback" onclick="outHub()">‹ Back to my choices</button>
+      <button class="backbtn goback" onclick="outHub()"><span class="ar">←</span> Back to the menu</button>
       <!-- Big, simple reminders card — designed to be usable by someone not tech-comfortable -->
       <div class="card" id="reminderCard" style="border:2px solid var(--brand)">
         <h2 style="font-size:21px">⏰ Turn on your reminders</h2>
@@ -385,12 +391,12 @@
           <p class="muted" style="margin:10px 0 0;font-size:14px">Tip: if a relative or pharmacist is nearby, this takes them about 30 seconds to help with.</p>
         </div>
       </div>
-      <button class="ghost goback" onclick="outHub()">‹ Back to my choices</button>
+      <button class="backbtn goback" onclick="outHub()"><span class="ar">←</span> Back to the menu</button>
     </div>
 
     <!-- SECTION 2: save a copy -->
     <div id="outSave" class="hide">
-      <button class="ghost goback" onclick="outHub()">‹ Back to my choices</button>
+      <button class="backbtn goback" onclick="outHub()"><span class="ar">←</span> Back to the menu</button>
       <div class="card">
         <h2>Your medications &amp; supplements</h2>
         <p class="muted" style="margin:.2em 0 .6em">Save a copy so you have it next time and can show any doctor.</p>
@@ -403,7 +409,7 @@
         </div>
         <p class="muted" id="copyMsg" style="margin:.6em 0 0"></p>
       </div>
-      <button class="ghost goback" onclick="outHub()">‹ Back to my choices</button>
+      <button class="backbtn goback" onclick="outHub()"><span class="ar">←</span> Back to the menu</button>
     </div>
 
     <div id="printArea" class="card"></div>
@@ -1038,7 +1044,7 @@ function goBack(){
 function copyDoc(){ navigator.clipboard.writeText($('doc').value).then(()=>msg('Copied! Paste it into your Notes or Messages.')); }
 function shareDoc(){ if(navigator.share) navigator.share({title:'My medications',text:$('doc').value}).catch(()=>{}); }
 function downloadTxt(){ dl('my-medications.txt', $('doc').value, 'text/plain'); }
-function msg(t){ $('copyMsg').textContent=t; setTimeout(()=>$('copyMsg').textContent='',4000); }
+function msg(t){ $('copyMsg').textContent=t; setTimeout(()=>$('copyMsg').textContent='',9000); } // linger so slower readers don't miss it
 function dl(name, content, type){
   const b=new Blob([content],{type}); const u=URL.createObjectURL(b);
   const a=document.createElement('a'); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u);
