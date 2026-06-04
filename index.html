@@ -57,18 +57,30 @@
   .choice .ch-txt b{font-size:19px;font-weight:700;line-height:1.25}
   .choice .ch-txt small{font-size:14px;font-weight:500;line-height:1.4;color:var(--muted)}
   .choice.primary .ch-txt small{color:#e4ecfe}
-  /* "Walk with me" — friendly opt-in guide. Additive overlay; never changes the add/save logic. */
+  /* "Walk with me" — friendly opt-in guide. Entry button + full-screen overlay.
+     The overlay covers the busy page so the user sees ONE thing at a time. */
   .choice.guide-start{background:#eef5ff;border:2px solid var(--brand);color:var(--ink)}
   .choice.guide-start .ch-txt b{color:var(--brand)}
-  .guidewrap{border:2px solid var(--brand);background:#f3f8ff;border-radius:16px;
-    padding:18px 20px;margin:14px 0;box-shadow:var(--shadow);
-    scroll-margin-top:100px} /* clear the sticky header so the panel's top isn't hidden when we scroll to it */
-  .guidewrap h2{margin:0 0 8px;font-size:20px;font-weight:800}
-  .guidewrap .guide-q{font-size:18px;line-height:1.5;margin:0 0 14px}
-  .guidewrap .guide-btns{display:flex;gap:10px;flex-wrap:wrap}
-  .guidewrap .guide-btns button{flex:0 1 auto}
-  .guidewrap .guide-skip{margin:14px 0 0;font-size:14px}
-  .guidewrap .guide-skip a{cursor:pointer;font-weight:600}
+  .goverlay{position:fixed;inset:0;z-index:90;background:rgba(20,30,45,.6);
+    display:flex;align-items:flex-start;justify-content:center;overflow-y:auto}
+  .gobox{background:var(--panel);width:100%;max-width:600px;min-height:100%;
+    padding:26px 20px 48px;box-shadow:0 10px 40px rgba(16,40,70,.28)}
+  @media(min-width:640px){ .goverlay{align-items:center;padding:24px}
+    .gobox{min-height:0;border-radius:22px} }
+  .gobox .go-emoji{font-size:52px;text-align:center;line-height:1;margin:4px 0 6px}
+  .gobox h2{font-size:26px;font-weight:800;text-align:center;margin:0 0 10px;line-height:1.2}
+  .gobox .go-lead{font-size:18px;color:var(--muted);text-align:center;margin:0 auto 18px;max-width:460px;line-height:1.5}
+  .gobox .go-q{font-size:20px;text-align:center;margin:0 0 18px;line-height:1.45}
+  .gobox .go-note{font-size:15px;color:var(--muted);font-weight:400}
+  .gobox .go-btns{display:flex;flex-direction:column;gap:12px;max-width:430px;margin:0 auto}
+  .gobox .go-big{font-size:20px;padding:18px 20px;width:100%;min-height:62px}
+  .gobox .go-back{text-align:center;margin:18px 0 0}
+  .gobox .go-back a{cursor:pointer;font-weight:700}
+  .gobox .go-skip{text-align:center;margin:24px 0 0}
+  .gobox .go-skip a{cursor:pointer;color:var(--muted);font-size:15px;font-weight:600}
+  /* the real form/paste box, borrowed into the overlay, sits flush — no double border */
+  .gobox #goHost #medForm{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+  .gobox #goHost #medForm.hide{display:none!important}
   .pill{display:inline-block;background:#fff;border:1.5px solid var(--line);
     border-radius:999px;padding:11px 18px;margin:6px 8px 0 0;font-size:17px;font-weight:600;cursor:pointer}
   .pill.on{background:var(--brand);border-color:var(--brand);color:#fff}
@@ -154,6 +166,15 @@
   </div>
 </div>
 
+<!-- Full-screen "Walk with me" guide. One step at a time; the real add-form and
+     paste box are MOVED in here (and back) so nothing is duplicated. -->
+<div id="guideOverlay" class="goverlay hide" role="dialog" aria-modal="true">
+  <div class="gobox">
+    <div id="goMsg"></div>
+    <div id="goHost"></div>
+  </div>
+</div>
+
 <header>
   <h1 style="font-size:28px;font-weight:800;letter-spacing:-.5px;margin:0 0 2px">Pill <span style="color:var(--brand)">Pal</span></h1>
   <div class="sub">Keep a clean list of your medications &amp; supplements — with reminder times &amp; refill dates, privately.</div>
@@ -173,9 +194,6 @@
 
   <!-- STEP 1: build / load -->
   <section id="builder">
-
-    <!-- "Walk with me" guide panel. Hidden until the user opts in; content rendered by guideRender(). -->
-    <div id="guidePanel" class="guidewrap hide"></div>
 
     <div class="card">
       <h2>Add a medication or supplement</h2>
@@ -283,7 +301,7 @@
         <div id="ocrRaw" class="muted hide" style="font-size:12px;margin-top:8px"></div>
         <div class="row" style="margin-top:12px">
           <button class="good" onclick="confirmMed()">✓ Save to my list</button>
-          <button class="ghost" onclick="hideForm()">Cancel</button>
+          <button class="ghost" id="formCancelBtn" onclick="hideForm()">Cancel</button>
         </div>
       </div>
     </div>
@@ -299,7 +317,7 @@
       <summary>🔄 Refilled or returning? Restore my saved list</summary>
       <p class="muted" style="margin:.4em 0 .6em;font-size:15px">Paste the list you saved last time and we'll rebuild it.</p>
       <textarea id="pasteIn" placeholder="Paste your saved Pill Pal list here…"></textarea>
-      <div class="row" style="margin-top:10px">
+      <div class="row" style="margin-top:10px" id="restoreActions">
         <button class="primary" onclick="loadPasted()">Load my list</button>
         <span id="loadMsg" class="muted"></span>
       </div>
@@ -679,9 +697,10 @@ function runOCR(ev){
 
 async function scanLabel(file){
   showForm();
-  scrollBelowHeader($('scanStatus')); // carry the user down to the result — status line + the form right below it
+  if(!guide.active) scrollBelowHeader($('scanStatus')); // non-guide: carry the user down to the result. (Guide shows it in the overlay.)
   if(navigator.onLine===false){
     $('scanStatus').textContent='📶 You appear to be offline. Taking a photo of a label needs an internet connection (Wi-Fi works best). Please type the details in below, or try again once you\'re connected.';
+    guideOnScanReady(false, 'You appear to be offline, so the photo can\'t be read right now. Please type the details in below, then tap “✓ Save to my list”.');
     return;
   }
   $('scanStatus').textContent='📷 Reading your photo… this takes a few seconds.';
@@ -695,8 +714,10 @@ async function scanLabel(file){
     if(!resp.ok){ const e=await resp.json().catch(()=>({})); throw new Error(e.error||('reader error '+resp.status)); }
     fillFromScan(await resp.json());
     $('scanStatus').textContent='✓ Got it. Please check every field below, fix anything that\'s off, then tap Save.';
+    guideOnScanReady(true);
   }catch(err){
     $('scanStatus').textContent='Couldn\'t read it automatically — please type the details in below. ('+(err.message||'error')+')';
+    guideOnScanReady(false);
   }
 }
 
@@ -1095,81 +1116,117 @@ function toggleDevice(){
    UI state (which question is showing) and steers the user through screens
    that already exist. The two hooks below (guideOnAdd/guideOnRestore) are
    called from the real save paths and no-op unless the guide is running. */
-const guide = { active:false, step:null, awaitingAdd:false };
+const guide = { active:false, step:null, formHeading:'', formSub:'' };
 
-function guideStart(){
-  guide.active=true; guide.awaitingAdd=false; guide.step='prev';
-  guideRender();
-  guideToPanel();
+/* The guide MOVES real elements (the add form, the paste box) into the overlay
+   and back, so the user works with the exact same tested controls — no copies.
+   _homes remembers where each element normally lives. */
+const _homes = new Map();
+function _mount(el){ if(!el) return; if(!_homes.has(el)) _homes.set(el,{p:el.parentNode,n:el.nextSibling}); $('goHost').appendChild(el); }
+function _unmount(el){ if(!el) return; const h=_homes.get(el); if(h) h.p.insertBefore(el,h.n); }
+// Return every borrowed element to its home and clear the overlay host.
+function guideHostHome(){
+  ['medForm','pasteIn','restoreActions'].forEach(id=>_unmount($(id)));
+  $('medForm').classList.add('hide');
+  const c=$('formCancelBtn'); if(c) c.classList.remove('hide'); // restore normal Cancel outside the guide
 }
-function guideExit(){
-  guide.active=false; guide.awaitingAdd=false; guide.step=null;
-  const p=$('guidePanel'); p.classList.add('hide'); p.innerHTML='';
-}
-function guideShow(html){
-  const p=$('guidePanel');
-  p.innerHTML = `<h2>🤝 I'm right here with you</h2>${html}`
-    + `<p class="guide-skip muted"><a onclick="guideExit()">I'm okay on my own — hide this</a></p>`;
-  p.classList.remove('hide');
-}
-// Scroll the guide panel to just below the sticky header. We MEASURE the header
-// live (its height changes when the subtitle wraps on a phone), so the panel's
-// title is never hidden underneath it.
-function guideToPanel(){ scrollBelowHeader($('guidePanel')); }
-function guideRender(){
-  if(guide.step==='prev'){
-    guideShow(
-      `<p class="guide-q">First — <b>do you already have a saved Pill Pal list</b> from before, or did you just pick up a refill?</p>`
-      +`<div class="guide-btns">`
-      +`<button class="primary" onclick="guidePrev(true)">Yes, I have one</button>`
-      +`<button class="ghost" onclick="guidePrev(false)">No, I'm starting fresh</button>`
-      +`</div>`);
-  } else if(guide.step==='restore'){
-    guideShow(
-      `<p class="guide-q">Wonderful. Paste your saved list into the box below and tap <b>Load my list</b> — I'll pick things up right after.</p>`
-      +`<div class="guide-btns"><button class="ghost" onclick="guideToAdd()">Actually, let me add one by hand instead</button></div>`);
-  } else if(guide.step==='addchoice'){
-    guideShow(
-      `<p class="guide-q">Let's add a medication or supplement. <b>How would you like to do this one?</b></p>`
-      +`<div class="guide-btns">`
-      +`<button class="primary" onclick="guideChoose('scan')">📷 Take a photo of the label</button>`
-      +`<button class="ghost" onclick="guideChoose('manual')">✍️ Type it in myself</button>`
-      +`</div>`);
-  } else if(guide.step==='inprogress'){
-    guideShow(
-      `<p class="guide-q">Take your time filling in the details below, then tap the green <b>✓ Save to my list</b> button. I'll check back the moment you've saved.</p>`);
-  } else if(guide.step==='another'){
-    guideShow(
-      `<p class="guide-q">✓ Saved — nicely done! <b>Do you have another medication or supplement to add?</b></p>`
-      +`<div class="guide-btns">`
-      +`<button class="primary" onclick="guideAnother(true)">Yes, add another</button>`
-      +`<button class="good" onclick="guideAnother(false)">No, I'm done — review my list ›</button>`
-      +`</div>`);
+
+function guideOpen(){ $('guideOverlay').classList.remove('hide'); document.body.classList.add('locked'); }
+function guideClose(){ $('guideOverlay').classList.add('hide'); document.body.classList.remove('locked'); }
+
+function guideStart(){ guide.active=true; guideOpen(); guideStep('prev'); }
+function guideExit(){ guideHostHome(); guide.active=false; guide.step=null; guideClose(); }
+
+// Single place that switches steps: tidy the host, set the step, draw the text,
+// then borrow whatever control that step needs. The overlay is always in view,
+// so there is never anything to scroll to or hunt for.
+function guideStep(s){
+  guideHostHome();
+  guide.step=s;
+  guideRenderMsg();
+  $('guideOverlay').scrollTop = 0;
+  if(s==='restore'){ _mount($('pasteIn')); _mount($('restoreActions'));
+    setTimeout(()=>{ try{ $('pasteIn').focus({preventScroll:true}); }catch(e){} }, 120); }
+  if(s==='form'){
+    const c=$('formCancelBtn'); if(c) c.classList.add('hide'); // guide has its own "go back" — avoid two cancels
+    _mount($('medForm')); showForm();
+    if(guide.focusName){ guide.focusName=false;
+      setTimeout(()=>{ try{ $('f_name').focus({preventScroll:true}); }catch(e){} }, 120); }
   }
 }
-function guidePrev(hasList){
-  if(hasList){ guide.step='restore'; guideRender(); showRestore(); }
-  else { guide.step='addchoice'; guideRender(); guideToPanel(); }
+function guideRenderMsg(){
+  const skip = `<p class="go-skip"><a onclick="guideExit()">✕ Close — I'll do this on my own</a></p>`;
+  let h='';
+  if(guide.step==='prev'){
+    h=`<div class="go-emoji">👋</div>
+       <h2>Welcome — I'll do this with you</h2>
+       <p class="go-lead">We'll go one small step at a time. There's nothing you can break.</p>
+       <p class="go-q"><b>Have you used Pill Pal before?</b><br><span class="go-note">(Do you have a saved list to paste back in — for example, after a refill?)</span></p>
+       <div class="go-btns">
+         <button class="primary go-big" onclick="guidePrev(true)">Yes — I have a saved list</button>
+         <button class="good go-big" onclick="guidePrev(false)">No — I'm starting fresh</button>
+       </div>`;
+  } else if(guide.step==='restore'){
+    h=`<div class="go-emoji">🔄</div>
+       <h2>Paste your saved list</h2>
+       <p class="go-lead">Paste the list you saved last time into the box, then tap <b>Load my list</b>.</p>
+       <p class="go-back"><a onclick="guidePrev(false)">← Actually, I'll add one by hand</a></p>`;
+  } else if(guide.step==='addchoice'){
+    h=`<div class="go-emoji">➕</div>
+       <h2>Add a medicine</h2>
+       <p class="go-q"><b>How would you like to add this one?</b></p>
+       <div class="go-btns">
+         <button class="primary go-big" onclick="guideChoose('scan')">📷 Take a photo of the label</button>
+         <button class="go-big" onclick="guideChoose('manual')">✍️ Type it in myself</button>
+       </div>`;
+  } else if(guide.step==='scanning'){
+    h=`<div class="go-emoji">⏳</div>
+       <h2>Reading your label…</h2>
+       <p class="go-lead">This takes a few seconds — please hold on.<br>Camera didn't open, or changed your mind? Use a button below.</p>
+       <div class="go-btns">
+         <button class="primary go-big" onclick="guideChoose('scan')">📷 Try the photo again</button>
+         <button class="go-big" onclick="guideChoose('manual')">✍️ Type it in instead</button>
+       </div>`;
+  } else if(guide.step==='form'){
+    h=`<div class="go-emoji">📝</div>
+       <h2>${guide.formHeading}</h2>
+       <p class="go-lead">${guide.formSub}</p>`;
+  } else if(guide.step==='another'){
+    h=`<div class="go-emoji">✅</div>
+       <h2>Saved!</h2>
+       <p class="go-q"><b>Do you have another medicine to add?</b></p>
+       <div class="go-btns">
+         <button class="primary go-big" onclick="guideAnother(true)">Yes — add another</button>
+         <button class="good go-big" onclick="guideAnother(false)">No — I'm done ›</button>
+       </div>`;
+  }
+  $('goMsg').innerHTML = h + skip;
 }
-function guideToAdd(){ guide.step='addchoice'; guideRender(); guideToPanel(); }
+function guidePrev(hasList){ guideStep(hasList ? 'restore' : 'addchoice'); }
 function guideChoose(how){
-  guide.awaitingAdd=true; guide.step='inprogress'; guideRender();
-  if(how==='scan'){ $('photo').click(); }   // opens the camera/picker, then your normal scan→form flow
-  else { showFormManual(); }                // reveals + focuses the manual form
+  if(how==='scan'){ guideStep('scanning'); $('photo').click(); } // camera → scanLabel → guideOnScanReady
+  else { guide.formHeading='Type in your medicine'; guide.formSub='Fill in the boxes below, then tap the green “✓ Save to my list”.'; guide.focusName=true; guideStep('form'); }
 }
 function guideAnother(more){
-  if(more){ guide.step='addchoice'; guide.awaitingAdd=false; guideRender(); guideToPanel(); }
-  else { guideExit(); goReview(); }          // hand off to the existing approval flow
+  if(more){ guideStep('addchoice'); }
+  else { guideExit(); goReview(); }   // hand off to the existing approval flow
 }
-// Hooks fired by the EXISTING save paths. Guarded: do nothing unless the guide
-// is running and is actually waiting on an add — so edits/normal use are unaffected.
+// Hooks fired by the EXISTING paths. Guarded so normal (non-guide) use is untouched.
+function guideOnScanReady(ok, subOverride){
+  if(!guide.active || guide.step!=='scanning') return;
+  guide.formHeading = ok ? 'Here\'s what we read' : 'Let\'s type it in';
+  guide.formSub = subOverride || (ok
+    ? 'Please check each box and fix anything that looks off, then tap the green “✓ Save to my list”.'
+    : 'We couldn\'t read the photo — please fill in the boxes below, then tap “✓ Save to my list”.');
+  guideStep('form');
+}
 function guideOnAdd(){
-  if(!guide.active || !guide.awaitingAdd) return;
-  guide.awaitingAdd=false; guide.step='another'; guideRender(); guideToPanel();
+  if(!guide.active || guide.step!=='form') return;   // only after a real save inside the guide
+  guideStep('another');
 }
 function guideOnRestore(){
-  if(!guide.active) return;
-  guide.awaitingAdd=false; guide.step='another'; guideRender(); guideToPanel();
+  if(!guide.active || guide.step!=='restore') return;
+  guideStep('another');
 }
 
 renderList();
