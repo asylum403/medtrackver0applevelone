@@ -388,7 +388,7 @@
         <label style="display:flex;gap:10px;align-items:flex-start;font-size:17px;cursor:pointer;margin:0 0 16px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px">
           <input type="checkbox" id="icsPrivate" checked style="width:auto;margin-top:4px;transform:scale(1.3)">
           <span>Keep my reminders private.
-            <span class="muted" style="display:block;font-size:14px;margin-top:3px">The alert will just say <b>"Personal reminder"</b> — nothing about medicine shows on your lock screen for others to see. The details are tucked inside the calendar entry, visible only when you open it. Uncheck this if you'd rather the alert name the medicine.</span></span>
+            <span class="muted" style="display:block;font-size:14px;margin-top:3px">Dose alerts just say <b>"Personal reminder"</b> and refill alerts say <b>"Refill reminder (not a dose)"</b> — your <b>medicine's name never shows</b> on the lock screen for others to see. The details are tucked inside the calendar entry, visible only when you open it. Uncheck this if you'd rather the alert name the medicine.</span></span>
         </label>
         <button class="good" onclick="downloadICS()" style="font-size:21px;padding:18px 24px;width:100%;max-width:440px">📅 Download my reminders</button>
         <p id="icsMsg" style="margin:.7em 0 0;font-size:16px"></p>
@@ -1198,14 +1198,20 @@ function downloadICS(){
         ics+='END:VEVENT\r\n';
       });
     }
-    // refill reminder (single, all-day) — tied to when THIS supply actually runs out
+    // Refill reminder (single, all-day) — tied to when THIS supply actually runs out.
+    // A refill is NOT a dose. Label it unmistakably in BOTH modes so it can never be
+    // mistaken for "take a pill now". In private mode we still keep the drug NAME off
+    // the lock screen, but the word "Refill" (and "not a dose") always shows.
     const rd=refillReminderDate(m); if(rd && rd>=today){
       const d=dstr(rd);
-      const rtitle = discreet ? 'Personal reminder' : ('Refill '+nameStr+' soon');
-      const ralarm = discreet ? 'Personal reminder' : ('Refill '+nameStr);
+      const rtitle = discreet ? 'Refill reminder (not a dose)'
+                              : ('Refill — order/pick up '+nameStr+' (not a dose)');
+      const ralarm = discreet ? 'Refill reminder — order or pick up more. This is NOT a dose to take.'
+                              : ('Refill '+nameStr+' — order or pick up more. This is NOT a dose to take.');
+      const rbody  = 'REFILL ONLY: order or pick up more of '+nameStr+'. This is a refill reminder — NOT a dose to take now.';
       ics+='BEGIN:VEVENT\r\nUID:rf-'+sl+'-'+d+'@pillpal\r\n';
       ics+='DTSTAMP:'+stamp+'\r\nDTSTART;VALUE=DATE:'+d+'\r\nSUMMARY:'+rtitle+'\r\n';
-      if(discreet) ics+='DESCRIPTION:Refill '+nameStr+' soon\r\n';
+      ics+='DESCRIPTION:'+rbody+'\r\n';
       ics+='BEGIN:VALARM\r\nACTION:DISPLAY\r\nDESCRIPTION:'+ralarm+'\r\nTRIGGER:PT9H\r\nEND:VALARM\r\n';
       ics+='END:VEVENT\r\n';
     }
