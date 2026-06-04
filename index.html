@@ -144,6 +144,15 @@
   @media print{ body *{visibility:hidden} #printArea,#printArea *{visibility:visible}
     #printArea{display:block;position:absolute;left:0;top:0;width:100%;color:#000} }
   .goback{margin:10px 0 16px}
+  /* one-at-a-time approval screen (inside the overlay) */
+  .gobox .fl-prog{text-align:center;color:var(--brand);font-weight:800;font-size:14px;letter-spacing:.06em;text-transform:uppercase;margin:0 0 4px}
+  .gobox .fl-card{background:var(--panel2);border:1px solid var(--line);border-radius:14px;
+    padding:6px 16px;margin:6px auto 4px;text-align:left;max-width:440px}
+  .gobox .fl-row{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:17px}
+  .gobox .fl-row:last-child{border-bottom:none}
+  .gobox .fl-k{flex:0 0 96px;color:var(--muted);font-weight:600}
+  .gobox .fl-v{flex:1;font-weight:600}
+  .gobox #goHost .card{margin:18px 0 4px}
   /* agreement gate */
   .gate{position:fixed;inset:0;background:rgba(20,30,45,.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}
   .gatebox{background:var(--panel);border:1px solid var(--line);border-radius:18px;max-width:580px;width:100%;padding:24px;max-height:94vh;overflow:auto;box-shadow:0 10px 40px rgba(16,40,70,.25)}
@@ -397,7 +406,7 @@
     <!-- SECTION 2: save a copy -->
     <div id="outSave" class="hide">
       <button class="backbtn goback" onclick="outHub()"><span class="ar">←</span> Back to the menu</button>
-      <div class="card">
+      <div class="card" id="saveCard">
         <h2>Your medications &amp; supplements</h2>
         <p class="muted" style="margin:.2em 0 .6em">Save a copy so you have it next time and can show any doctor.</p>
         <textarea id="doc" style="min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px" readonly></textarea>
@@ -663,7 +672,7 @@ function confirmMed(){
   showChanges(`Added <b>${esc(m.name)} ${esc(m.strength)}</b>.`);
   finishAdd();
 }
-function finishAdd(){ hideForm(); renderList(); guideOnAdd(); /* no-op unless the guide is running */ }
+function finishAdd(){ hideForm(); renderList(); guideOnAdd(); flowOnSave(); /* hooks no-op unless guide/flow is running */ }
 
 function editMed(id){
   const m = meds.find(x=>x.id===id); if(!m) return;
@@ -905,15 +914,110 @@ function parseDoc(txt){
   return out;
 }
 
-/* ---------- review & approve ---------- */
-function goReview(){
-  step='review'; updateStepper();
-  $('builder').classList.add('hide'); $('output').classList.add('hide');
-  $('review').classList.remove('hide');
-  $('toReview').classList.add('hide'); $('genBtn').classList.remove('hide');
-  $('backBtn').classList.remove('hide');
+/* ---------- review & approve — full-screen, ONE medicine at a time ----------
+   Same clean overlay as the helper. Reuses the real med data + edit form;
+   approving just sets m.approved (the original logic). */
+function goReview(){ startApproveFlow(); }  // the "Review & approve ›" button enters the flow
+
+function startApproveFlow(){
+  if(!meds.length) return;
+  guide.active=false;                 // the step-1 helper (if any) is finished
+  flow.mode='approve'; flow.idx=0; flow.editing=false;
   meds.forEach(m=>m.approved=false);
-  renderReview();
+  step='review'; updateStepper();
+  guideOpen();                        // open (or stay on) the full-screen overlay
+  approveRender();
+}
+function approveRender(){
+  guideHostHome();
+  flow.mode='approve';
+  const total=meds.length;
+  if(flow.idx>=total){ approveDone(); return; }
+  const m=meds[flow.idx];
+  const rd=refillDate(m); const dupe=matchExisting(m.name,m.strength,m.id);
+  const row=(k,v)=>`<div class="fl-row"><span class="fl-k">${k}</span><span class="fl-v">${v}</span></div>`;
+  const detail =
+    (m.times.length?row('Take at', esc(m.times.join(', '))):'')
+    + (m.dir?row('Directions', esc(m.dir)):'')
+    + (m.count?row('Pills now', m.count):'')
+    + (rd?row('Refill by', fmtDate(rd)):'');
+  const warn =
+    (m.extraDose?`<div class="warnbox" style="margin:12px auto 0;max-width:440px">⚠ Extra dose added by you: you set ${m.perDay}/day; the directions said ${m.impliedDoses}.</div>`:'')
+    + (dupe?`<div class="warnbox" style="margin:12px auto 0;max-width:440px">⚠ This looks like a possible duplicate of another entry.</div>`:'')
+    + (m.stopped?`<div class="changes" style="margin:12px auto 0;max-width:440px">Marked “stopped” — it won't get reminders.</div>`:'');
+  $('goMsg').innerHTML = `
+    <p class="fl-prog">Medicine ${flow.idx+1} of ${total}</p>
+    <div class="go-emoji">💊</div>
+    <h2>${esc(m.name)} ${esc(m.strength)} ${m.form?`<span class="muted" style="font-weight:600">(${esc(m.form)})</span>`:''}</h2>
+    <p class="go-lead">Does this look right?</p>
+    <div class="fl-card">${detail||'<div class="fl-row"><span class="fl-v muted">No extra details added.</span></div>'}</div>
+    ${warn}
+    <div class="go-btns">
+      <button class="good go-big" onclick="approveYes()">✓ Yes, this is right</button>
+      <button class="go-big" onclick="approveFix()">✏️ Change something</button>
+    </div>
+    <p class="go-back"><a onclick="approveBack()">← ${flow.idx>0?'Back to the one before':'Back to my medicines'}</a></p>
+    ${flowSkipLink()}`;
+  $('guideOverlay').scrollTop=0;
+}
+function approveYes(){ meds[flow.idx].approved=true; flow.idx++; approveRender(); }
+function approveBack(){ if(flow.idx>0){ flow.idx--; approveRender(); } else { flowExit(); } }
+function approveFix(){
+  flow.editing=true;
+  editMed(meds[flow.idx].id);                 // fill the real form with this med
+  _mount($('medForm'));                        // move that real form into the overlay
+  const c=$('formCancelBtn'); if(c) c.classList.add('hide');
+  $('goMsg').innerHTML = `<div class="go-emoji">✏️</div><h2>Change this medicine</h2>
+     <p class="go-lead">Fix anything below, then tap the green “✓ Save to my list”.</p>
+     <p class="go-back"><a onclick="approveFixCancel()">← Never mind, go back</a></p>`;
+  $('guideOverlay').scrollTop=0;
+}
+function approveFixCancel(){ flow.editing=false; hideForm(); approveRender(); }
+// Called by finishAdd after a real save — returns to the medicine just edited.
+function flowOnSave(){ if(flow.mode==='approve' && flow.editing){ flow.editing=false; approveRender(); } }
+function approveDone(){ buildOutputs(); outFlowHub(); }
+
+/* ---------- final step in the overlay: hub → reminders / save ----------
+   Reuses the real controls: the reminders card and the save card are MOVED
+   into the overlay (and back), so downloadICS/copyDoc/print all work unchanged. */
+function buildOutputs(){
+  step='output'; updateStepper();
+  computePlans();                                   // resolve each med's reminder window
+  const text = buildDocText();
+  $('doc').value = text;
+  $('printArea').innerHTML = '<pre style="white-space:pre-wrap;font-size:13px">'+esc(text)+'</pre>';
+  if(!navigator.share) $('shareBtn').classList.add('hide');
+  renderHowto();
+}
+function flowSkipLink(){ return `<p class="go-skip"><a onclick="flowExit()">✕ Close — back to my medicines</a></p>`; }
+function outFlowHub(){
+  guideHostHome(); flow.mode='hub'; step='output'; updateStepper();
+  $('goMsg').innerHTML = `
+    <div class="go-emoji">✅</div>
+    <h2>Your list is ready!</h2>
+    <p class="go-lead">Here are the two things you can do. Pick one — you can always come back here for the other.</p>
+    <div class="go-btns">
+      <button class="primary go-big" onclick="outFlowShow('reminders')">⏰ Turn on my reminders</button>
+      <button class="go-big" onclick="outFlowShow('save')">📄 Save a copy of my list</button>
+    </div>
+    <p class="go-back"><a onclick="flowExit()">← Add or change a medicine</a></p>
+    ${flowSkipLink()}`;
+  $('guideOverlay').scrollTop=0;
+}
+function outFlowShow(which){
+  guideHostHome(); flow.mode=which;
+  $('goMsg').innerHTML = `<button class="backbtn" onclick="outFlowHub()"><span class="ar">←</span> Back to the menu</button>`;
+  _mount($(which==='reminders' ? 'reminderCard' : 'saveCard'));
+  $('goHost').insertAdjacentHTML('beforeend',
+    `<button class="backbtn goback" onclick="outFlowHub()"><span class="ar">←</span> Back to the menu</button>`);
+  $('guideOverlay').scrollTop=0;
+}
+function flowExit(){
+  guideHostHome(); flow.mode=null; guideClose();
+  step='builder'; updateStepper();
+  $('review').classList.add('hide'); $('output').classList.add('hide'); $('builder').classList.remove('hide');
+  $('genBtn').classList.add('hide'); $('backBtn').classList.add('hide'); $('toReview').classList.remove('hide');
+  renderList();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function renderReview(){
@@ -1167,6 +1271,7 @@ function toggleDevice(){
    that already exist. The two hooks below (guideOnAdd/guideOnRestore) are
    called from the real save paths and no-op unless the guide is running. */
 const guide = { active:false, step:null, formHeading:'', formSub:'' };
+const flow  = { mode:null, idx:0, editing:false };  // full-screen Approve → Reminders → Save
 
 /* The guide MOVES real elements (the add form, the paste box) into the overlay
    and back, so the user works with the exact same tested controls — no copies.
@@ -1176,9 +1281,10 @@ function _mount(el){ if(!el) return; if(!_homes.has(el)) _homes.set(el,{p:el.par
 function _unmount(el){ if(!el) return; const h=_homes.get(el); if(h) h.p.insertBefore(el,h.n); }
 // Return every borrowed element to its home and clear the overlay host.
 function guideHostHome(){
-  ['medForm','pasteIn','restoreActions'].forEach(id=>_unmount($(id)));
+  ['medForm','pasteIn','restoreActions','reminderCard','saveCard'].forEach(id=>_unmount($(id)));
   $('medForm').classList.add('hide');
   const c=$('formCancelBtn'); if(c) c.classList.remove('hide'); // restore normal Cancel outside the guide
+  $('goHost').innerHTML=''; // remove injected chrome (e.g. a bottom Back button); real elements were moved out first
 }
 
 function guideOpen(){ $('guideOverlay').classList.remove('hide'); document.body.classList.add('locked'); }
@@ -1259,7 +1365,7 @@ function guideChoose(how){
 }
 function guideAnother(more){
   if(more){ guideStep('addchoice'); }
-  else { guideExit(); goReview(); }   // hand off to the existing approval flow
+  else { startApproveFlow(); }   // slide straight into the full-screen approval flow (overlay stays open)
 }
 // Hooks fired by the EXISTING paths. Guarded so normal (non-guide) use is untouched.
 function guideOnScanReady(ok, subOverride){
