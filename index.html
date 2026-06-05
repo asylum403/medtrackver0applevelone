@@ -335,6 +335,7 @@
     <details class="more" id="restoreBlock" style="margin-top:4px">
       <summary>🔄 Refilled or returning? Restore my saved list</summary>
       <p class="muted" style="margin:.4em 0 .6em;font-size:15px">Paste the list you saved last time and we'll rebuild it.</p>
+      <p style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-size:14px;margin:.2em 0 .7em">📌 <b>Know which copy is newest.</b> It's fine to keep older saved lists — just use the <b>"Last updated"</b> date at the top to spot your most recent one, so you (or a doctor) always have the current list.</p>
       <textarea id="pasteIn" placeholder="Paste your saved Pill Pal list here…"></textarea>
       <div class="row" style="margin-top:10px" id="restoreActions">
         <button class="primary" onclick="loadPasted()">Load my list</button>
@@ -421,6 +422,7 @@
       <div class="card" id="saveCard">
         <h2>Your medications &amp; supplements</h2>
         <p class="muted" style="margin:.2em 0 .6em">Save a copy so you have it next time and can show any doctor.</p>
+        <p style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:16px;margin:.2em 0 .9em">💬 <b>Easiest way to keep it:</b> tap <b>Share</b> below and <b>send it to yourself in a text message</b>. It saves right in your own messages — easy to find later, private to you, and nobody else sees it. (You can also paste it into your Notes.)</p>
         <textarea id="doc" style="min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px" readonly></textarea>
         <div class="row" style="margin-top:10px">
           <button class="primary" onclick="copyDoc()">📋 Copy</button>
@@ -719,6 +721,7 @@ function renderList(){
       return `<div class="med">
         <h3>${esc(m.name)} ${esc(m.strength)} ${m.form?`<span class="muted">(${esc(m.form)})</span>`:''}
           ${m.stopped?'<span class="tag stop">stopped</span>':''}
+          ${ranOut(m)?'<span class="tag dupe">⏳ ran out — refill or stop</span>':''}
           ${dupe?'<span class="tag dupe">⚠ possible duplicate</span>':''}</h3>
         <div class="meta">
           ${m.times.length?`Take at: ${esc(m.times.join(', '))}<br>`:''}
@@ -748,6 +751,7 @@ function showChanges(html){
    which asks Claude to read the label and returns the fields as JSON. The image
    is read and discarded — never stored. One tap, no boxes, no typing. */
 const WORKER_URL = 'https://medtrack-ocr.tommygordon103.workers.dev/';
+const SITE_URL = 'https://asylum403.github.io/medtrackver0applevelone/'; // shown in the saved list so people can find their way back
 
 function runOCR(ev){
   const file = ev.target.files && ev.target.files[0]; if(!file){ return; }
@@ -886,30 +890,39 @@ function loadPasted(){
   });
   $('pasteIn').value='';
   $('loadMsg').textContent='';
-  showChanges(`Loaded your list: ${added} added${updated?`, ${updated} updated`:''}. Now add anything new.`);
+  showChanges(`Loaded your list: ${added} added${updated?`, ${updated} updated`:''}. When you save, it becomes your newest copy — the <b>"Last updated"</b> date at the top lets you (or a doctor) always find the most recent one.`);
   renderList();
   window.scrollTo({top:document.getElementById('listCard').offsetTop-70,behavior:'smooth'});
   guideOnRestore(); /* no-op unless the guide is running */
 }
 function parseDoc(txt){
   const out=[]; const lines = txt.split('\n');
+  const windows=[];                       // reminder-window footer lines, applied after parsing
   let cur=null;
   const push=()=>{ if(cur && cur.name){ out.push(cur); } cur=null; };
   for(let raw of lines){
     const line = raw.replace(/ /g,' ');
+    // Footer window line: "Name strength | 2026-06-04..2026-07-03"
+    let wm=line.match(/^\s*(.+?)\s*\|\s*(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})\s*$/);
+    if(wm){ windows.push({key:norm(wm[1]), s:parseISO(wm[2]), e:parseISO(wm[3])}); continue; }
     const bullet = line.match(/^\s*[•\-\*]\s+(.+)$/);
     if(bullet){
       push();
       // "NAME 10 mg (tablet)"
       let head = bullet[1].trim();
+      const isStopped = /\bstopped\b/i.test(head);
+      head = head.replace(/\s*[—–-]\s*stopped\s*$/i,'').trim();   // strip the "— stopped" marker before reading name/strength
       const form = (head.match(/\(([^)]+)\)\s*$/)||[])[1]||'';
       head = head.replace(/\(([^)]+)\)\s*$/,'').trim();
       const sm = head.match(/(.+?)\s+(\d+(?:\.\d+)?\s?(?:mg|mcg|g|ml|units?))\s*$/i);
-      cur = {name:'',strength:'',form:form,dir:'',times:[],count:0,refills:'',perDay:0,impliedDoses:null,extraDose:false,buffer:7,rx:'',pharm:'',stopped:/stopped/i.test(line),approved:false,priorStart:null,priorEnd:null};
+      cur = {name:'',strength:'',form:form,dir:'',times:[],count:0,refills:'',perDay:0,impliedDoses:null,extraDose:false,buffer:7,rx:'',pharm:'',stopped:isStopped,approved:false,priorStart:null,priorEnd:null};
       if(sm){ cur.name=sm[1].trim(); cur.strength=sm[2].trim(); } else { cur.name=head; }
       continue;
     }
     if(!cur) continue;
+    // Count and Refills may share one line ("Count: 60 · Refills left: 2") — parse independently.
+    let cm=line.match(/count:\s*(\d+(?:\.\d+)?)/i); if(cm) cur.count=parseFloat(cm[1]);
+    let fm=line.match(/refills left:\s*(\d+)/i);    if(fm) cur.refills=fm[1];
     let m;
     if(m=line.match(/reminders:\s*(.*?)\s+daily/i)){
       const tms=m[1].split(',').map(s=>s.trim()).filter(Boolean);
@@ -919,8 +932,6 @@ function parseDoc(txt){
     }
     else if(m=line.match(/take at:\s*(.+)/i)) cur.times = m[1].split(',').map(s=>s.trim()).filter(Boolean);
     else if(m=line.match(/directions:\s*(.+)/i)) cur.dir=m[1].trim();
-    else if(m=line.match(/count:\s*(\d+(?:\.\d+)?)/i)) cur.count=parseFloat(m[1]);
-    else if(m=line.match(/refills left:\s*(\d+)/i)) cur.refills=m[1];
     else if(m=line.match(/extra dose added by you:\s*you set\s+(\d+).*indicated\s+(\d+)/i)){ cur.perDay=parseFloat(m[1]); cur.impliedDoses=parseFloat(m[2]); cur.extraDose=true; }
     else if(m=line.match(/doses per day:\s*(\d+(?:\.\d+)?)/i)) cur.perDay=parseFloat(m[1]);
     else if(m=line.match(/rx#\s*([^\s·|]+)/i)) cur.rx=m[1].trim();
@@ -928,6 +939,11 @@ function parseDoc(txt){
     else if(m=line.match(/pharmacy:\s*(.+)/i)) cur.pharm=m[1].trim();
   }
   push();
+  // Apply the saved reminder windows (new footer format) to meds by name+strength.
+  if(windows.length){
+    const keyOf=o=>norm(o.name+(o.strength?' '+o.strength:''));
+    windows.forEach(wn=>{ const m=out.find(o=>keyOf(o)===wn.key && !o.priorStart); if(m){ m.priorStart=wn.s; m.priorEnd=wn.e; } });
+  }
   return out;
 }
 
@@ -951,6 +967,7 @@ function approveRender(){
   const total=meds.length;
   if(flow.idx>=total){ approveDone(); return; }
   const m=meds[flow.idx];
+  if(ranOut(m)){ approveRanOut(m, total); return; }   // supply ran out → ask refill or done
   const rd=refillDate(m); const dupe=matchExisting(m.name,m.strength,m.id);
   const row=(k,v)=>`<div class="fl-row"><span class="fl-k">${k}</span><span class="fl-v">${v}</span></div>`;
   const detail =
@@ -980,6 +997,42 @@ function approveRender(){
 }
 function approveYes(){ meds[flow.idx].approved=true; flow.idx++; approveRender(); }
 function approveBack(){ if(flow.idx>0){ flow.idx--; approveRender(); } else { flowExit(); } }
+// A medicine has "run out" when the supply window it last set up ended before today.
+function ranOut(m){ return !m.stopped && m.priorEnd && m.priorEnd < startToday(); }
+// Ran-out screen: don't silently re-alarm — ask the user to refill or finish.
+function approveRanOut(m, total){
+  $('goMsg').innerHTML = `
+    <p class="fl-prog">Medicine ${flow.idx+1} of ${total}</p>
+    <div class="go-emoji">⏳</div>
+    <h2>${esc(m.name)} ${esc(m.strength)} ${m.form?`<span class="muted" style="font-weight:600">(${esc(m.form)})</span>`:''}</h2>
+    <div class="warnbox" style="max-width:440px;margin:0 auto 14px">⚠️ This looks like it <b>ran out on ${fmtDate(m.priorEnd)}</b> — its reminders have already stopped.</div>
+    <p class="go-lead">Did you refill it, or are you done taking it?</p>
+    <div class="go-btns">
+      <button class="primary go-big" onclick="approveRefill()">💊 I refilled it — update the count</button>
+      <button class="good go-big" onclick="approveStopMed()">✓ I'm done — stop its reminders</button>
+    </div>
+    <p class="go-back"><a onclick="approveYes()">Neither — just keep its reminders going</a></p>
+    <p class="go-rm"><a class="danger" onclick="approveRemove()">🗑 Remove this medicine from my list</a></p>
+    ${flowSkipLink()}`;
+  $('guideOverlay').scrollTop=0;
+}
+// "I refilled it" → open the edit form to update the count; fresh reminders start today.
+function approveRefill(){
+  flow.editing=true; flow.refilling=true;
+  editMed(meds[flow.idx].id);
+  _mount($('medForm'));
+  const c=$('formCancelBtn'); if(c) c.classList.add('hide');
+  $('goMsg').innerHTML = `<div class="go-emoji">💊</div><h2>Update your refill</h2>
+     <p class="go-lead">Change <b>“Pills you have now”</b> to how many you just picked up, then tap the green “✓ Save to my list”. Your new reminders start today.</p>
+     <p class="go-back"><a onclick="approveFixCancel()">← Never mind, go back</a></p>`;
+  $('guideOverlay').scrollTop=0;
+}
+// "I'm done" → stop it (no new alarms; the saved list will cancel the old ones).
+function approveStopMed(){
+  const m=meds[flow.idx]; if(m){ m.stopped=true; m.approved=true; }
+  renderList();
+  flow.idx++; approveRender();
+}
 function approveRemove(){
   const m=meds[flow.idx]; if(!m) return;
   // If it already has alarms on the phone, deleting here can't erase them — steer to "stopped".
@@ -1000,9 +1053,14 @@ function approveFix(){
      <p class="go-back"><a onclick="approveFixCancel()">← Never mind, go back</a></p>`;
   $('guideOverlay').scrollTop=0;
 }
-function approveFixCancel(){ flow.editing=false; hideForm(); approveRender(); }
+function approveFixCancel(){ flow.editing=false; flow.refilling=false; hideForm(); approveRender(); }
 // Called by finishAdd after a real save — returns to the medicine just edited.
-function flowOnSave(){ if(flow.mode==='approve' && flow.editing){ flow.editing=false; approveRender(); } }
+function flowOnSave(){
+  if(flow.mode!=='approve' || !flow.editing) return;
+  flow.editing=false;
+  if(flow.refilling){ flow.refilling=false; const m=meds[flow.idx]; if(m){ m.priorStart=null; m.priorEnd=null; } } // refill → fresh window from today
+  approveRender();
+}
 function approveDone(){ buildOutputs(); outFlowHub(); }
 
 /* ---------- final step in the overlay: hub → reminders / save ----------
@@ -1106,38 +1164,62 @@ function updateGenBtn(){
 function buildDocText(){
   const today = new Date();
   const active = meds.filter(m=>!m.stopped);
-  let s = `═══ MY MEDICATIONS & SUPPLEMENTS — as of ${fmtDate(today)} ═══\n`;
+  let s = `Pill Pal · Last updated ${fmtDate(today)}\n`;
+  s += `═══ MY MEDICATIONS & SUPPLEMENTS ═══\n`;
+  s += `Reopen anytime to update this list or set reminders:\n${SITE_URL}\n`;
   s += `Patient-reported. Not medical advice. Keep this private.\n\n`;
   active.forEach(m=>{
     const rd=refillReminderDate(m);
+    const pl=m._plan;
     s += `• ${m.name}${m.strength?' '+m.strength:''}${m.form?' ('+m.form+')':''}\n`;
     if(m.times.length) s += `   Take at: ${m.times.join(', ')}\n`;
     if(m.dir) s += `   Directions: ${m.dir}\n`;
-    if(m.count) s += `   Count: ${m.count} (as of ${fmtDate(today)})\n`;
-    if(m.refills) s += `   Refills left: ${m.refills}\n`;
+    // Count + refills together on one clean line
+    const cr=[]; if(m.count) cr.push(`Count: ${m.count}`); if(m.refills) cr.push(`Refills left: ${m.refills}`);
+    if(cr.length) s += `   ${cr.join(' · ')} (as of ${fmtDate(today)})\n`;
     if(m.extraDose) s += `   ** EXTRA DOSE ADDED BY YOU: you set ${m.perDay} dose(s)/day; the directions indicated ${m.impliedDoses}. Not from the prescriber. **\n`;
-    const dpd=dosesPerDay(m); if(dpd) s += `   Doses per day: ${dpd}\n`;
-    // Alarm window — date/time + start → end. Read back on paste so a later resupply
-    // appends to the end instead of stacking a duplicate alarm. Keep the [ISO..ISO] tag.
-    const pl=m._plan;
-    if(pl && m.times.length){
-      s += `   Reminders: ${m.times.join(', ')} daily · ${fmtDate(pl.covStart)} → ${fmtDate(pl.covEnd)}  [${fmtISO(pl.covStart)}..${fmtISO(pl.covEnd)}]\n`;
-    }
+    if(pl && m.times.length) s += `   Reminders run: ${fmtDate(pl.covStart)} → ${fmtDate(pl.covEnd)}\n`;
     if(rd) s += `   Refill reminder: ${fmtDate(rd)}\n`;
     if(m.rx) s += `   Rx# ${m.rx}${m.pharm?' · '+m.pharm:''}\n`;
     else if(m.pharm) s += `   Pharmacy: ${m.pharm}\n`;
     s += `\n`;
   });
   const stopped = meds.filter(m=>m.stopped);
-  if(stopped.length){ s += `─── STOPPED / NOT TAKING ───\n`; stopped.forEach(m=>s+=` • ${m.name}${m.strength?' '+m.strength:''}\n`); s+=`\n`; }
+  if(stopped.length){
+    s += `─── STOPPED / NO LONGER TAKING — no reminders are set for these ───\n`;
+    stopped.forEach(m=>s+=` • ${m.name}${m.strength?' '+m.strength:''} — stopped\n`);
+    s+=`\n`;
+  }
 
-  // alarm times summary
-  const timeSet = new Set(); active.forEach(m=>m.times.forEach(t=>timeSet.add(t)));
-  if(timeSet.size){ s += `─── SET THESE ALARMS ───\n ${[...timeSet].join('  ·  ')}\n\n`; }
+  // Daily schedule grouped BY TIME, each time listing exactly which medicines to take then —
+  // so it's never read as "take everything at every time". (No leading bullet on the name
+  // lines, so paste-back doesn't mistake them for medicines.)
+  const byTime = {};
+  active.forEach(m=>m.times.forEach(t=>{ (byTime[t]=byTime[t]||[]).push(`${m.name}${m.strength?' '+m.strength:''}`); }));
+  const schedTimes = Object.keys(byTime).sort((a,b)=>{ const A=to24(a)||{h:0,m:0}, B=to24(b)||{h:0,m:0}; return (A.h*60+A.m)-(B.h*60+B.m); });
+  if(schedTimes.length){
+    s += `─── DAILY SCHEDULE — what to take at each time ───\n`;
+    s += `(Your downloaded calendar reminders already do this for each medicine.)\n`;
+    schedTimes.forEach(t=>{ s += ` At ${t}, take:\n`; byTime[t].forEach(n=>s+=`      ${n}\n`); });
+    s += `\n`;
+  }
 
   // refill reminders
   const refills = active.map(m=>({m,rd:refillReminderDate(m)})).filter(x=>x.rd).sort((a,b)=>a.rd-b.rd);
   if(refills.length){ s += `─── REFILL REMINDERS (set a calendar alert) ───\n`; refills.forEach(x=>s+=` ${fmtDate(x.rd)} — ${x.m.name}\n`); s+=`\n`; }
+
+  // Machine-readable reminder windows — tucked at the bottom, clearly labeled. Read back on
+  // paste so a later resupply APPENDS to the end instead of stacking a duplicate alarm.
+  // Active meds use their live plan window; stopped meds keep their prior window so a
+  // paste-back can still CANCEL the alarms they already put on the phone.
+  const winOf = m => m._plan ? [m._plan.covStart, m._plan.covEnd]
+                             : (m.priorStart && m.priorEnd ? [m.priorStart, m.priorEnd] : null);
+  const wins = meds.filter(m=>m.times.length && winOf(m));
+  if(wins.length){
+    s += `─── KEEP THIS — lets us avoid making duplicate alarms next time ───\n`;
+    wins.forEach(m=>{ const [cs,ce]=winOf(m); s += ` ${m.name}${m.strength?' '+m.strength:''} | ${fmtISO(cs)}..${fmtISO(ce)}\n`; });
+    s += `\n`;
+  }
 
   s += `(Created with Pill Pal — this tool stores nothing. Keep your own copy.)\n`;
   return s;
@@ -1276,10 +1358,11 @@ function downloadICS(){
   const hz=dstr(horizon);
   const renTitle = discreet ? '⏰ Check your reminders' : '⏰ Pill Pal — check your reminders';
   const renDesc  = discreet ? 'Open your reminders app to refresh any reminders that have run out.'
-                            : 'Open Pill Pal to review your medications and download fresh reminders for any that have run out.';
+                            : ('Open Pill Pal to review your medications and download fresh reminders for any that have run out. '+SITE_URL);
   ics+='BEGIN:VEVENT\r\nUID:pillpal-renew-'+hz+'@pillpal\r\n';
   ics+='DTSTAMP:'+stamp+'\r\nDTSTART;VALUE=DATE:'+hz+'\r\nSUMMARY:'+renTitle+'\r\n';
   ics+='DESCRIPTION:'+renDesc+'\r\n';
+  if(!discreet) ics+='URL:'+SITE_URL+'\r\n';
   ics+='BEGIN:VALARM\r\nACTION:DISPLAY\r\nDESCRIPTION:'+renTitle+'\r\nTRIGGER:PT9H\r\nEND:VALARM\r\n';
   ics+='END:VEVENT\r\n';
   ics+='END:VCALENDAR\r\n';
@@ -1339,7 +1422,7 @@ function toggleDevice(){
    that already exist. The two hooks below (guideOnAdd/guideOnRestore) are
    called from the real save paths and no-op unless the guide is running. */
 const guide = { active:false, step:null, formHeading:'', formSub:'' };
-const flow  = { mode:null, idx:0, editing:false };  // full-screen Approve → Reminders → Save
+const flow  = { mode:null, idx:0, editing:false, refilling:false };  // full-screen Approve → Reminders → Save
 
 /* The guide MOVES real elements (the add form, the paste box) into the overlay
    and back, so the user works with the exact same tested controls — no copies.
@@ -1394,6 +1477,7 @@ function guideRenderMsg(){
     h=`<div class="go-emoji">🔄</div>
        <h2>Paste your saved list</h2>
        <p class="go-lead">Paste the list you saved last time into the box, then tap <b>Load my list</b>.</p>
+       <p class="go-note" style="max-width:460px;margin:0 auto 14px">📌 Tip: it's fine to keep older saved copies — the "Last updated" date at the top tells you which is your most recent, so a doctor always gets the current one.</p>
        <p class="go-back"><a onclick="guidePrev(false)">← Actually, I'll add one by hand</a></p>`;
   } else if(guide.step==='addchoice'){
     h=`<div class="go-emoji">➕</div>
