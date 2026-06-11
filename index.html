@@ -287,7 +287,7 @@
           </div>
           <div class="col" style="flex:0 1 150px"><label class="f">Strength / dose</label><input id="f_strength" placeholder="10 mg"></div>
           <div class="col" style="flex:0 1 160px"><label class="f">Form</label>
-            <select id="f_form"><option value="">—</option><option>tablet</option><option>capsule</option><option>liquid</option><option>inhaler</option><option>drops</option><option>topical</option><option>injection</option><option>other</option></select>
+            <select id="f_form"><option value="">—</option><option>tablet</option><option>capsule</option><option>liquid</option><option>inhaler</option><option>drops</option><option>topical</option><option>powder</option><option>injection</option><option>other</option></select>
           </div>
         </div>
         <div class="grouphd">When do you take it?</div>
@@ -820,8 +820,8 @@ function setFormSelect(form){
   const map={tablet:'tablet',tab:'tablet',tabs:'tablet',capsule:'capsule',cap:'capsule',caps:'capsule',
     liquid:'liquid',solution:'liquid',suspension:'liquid',syrup:'liquid',inhaler:'inhaler',
     drops:'drops',drop:'drops',topical:'topical',cream:'topical',ointment:'topical',gel:'topical',
-    patch:'topical',injection:'injection',injectable:'injection'};
-  $('f_form').value = map[v] || (['tablet','capsule','liquid','inhaler','drops','topical','injection'].includes(v)?v:'other');
+    patch:'topical',powder:'powder',sachet:'powder',granules:'powder',injection:'injection',injectable:'injection'};
+  $('f_form').value = map[v] || (['tablet','capsule','liquid','inhaler','drops','topical','powder','injection'].includes(v)?v:'other');
 }
 
 /* ---------- name suggestions: instant local list + live NLM RxTerms ----------
