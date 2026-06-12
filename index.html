@@ -428,7 +428,7 @@
           <button class="primary" onclick="copyDoc()">📋 Copy</button>
           <button onclick="shareDoc()" id="shareBtn">📤 Share to Notes/Messages</button>
           <button onclick="downloadTxt()">⬇️ Download (.txt)</button>
-          <button onclick="window.print()">🖨️ Print / Save PDF</button>
+          <button onclick="printDoc()">🖨️ Print / Save PDF</button>
         </div>
         <p class="muted" id="copyMsg" style="margin:.6em 0 0"></p>
       </div>
@@ -1264,6 +1264,32 @@ function goBack(){
 function copyDoc(){ navigator.clipboard.writeText($('doc').value).then(()=>msg('Copied! Paste it into your Notes or Messages.')); }
 function shareDoc(){ if(navigator.share) navigator.share({title:'My medications',text:$('doc').value}).catch(()=>{}); }
 function downloadTxt(){ dl('my-medications.txt', $('doc').value, 'text/plain'); }
+// Print / Save-PDF: render the list into its OWN clean document and print that.
+// (The old approach printed the whole app page with a visibility hack — but hidden
+//  elements still take up space, so the PDF came out as blank pages. This doesn't.)
+function printDoc(){
+  const text = $('doc').value || buildDocText();
+  const html = '<!doctype html><html><head><meta charset="utf-8">'
+    + '<title>My Medications</title>'
+    + '<style>@page{margin:14mm} '
+    + 'body{margin:0;color:#000;font:13px/1.55 ui-monospace,Menlo,Consolas,monospace} '
+    + 'pre{white-space:pre-wrap;word-wrap:break-word;margin:0}</style></head>'
+    + '<body><pre>'+esc(text)+'</pre></body></html>';
+  const frame=document.createElement('iframe');
+  frame.setAttribute('aria-hidden','true');
+  frame.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  document.body.appendChild(frame);
+  const fd=frame.contentDocument||frame.contentWindow.document;
+  fd.open(); fd.write(html); fd.close();
+  let removed=false; const cleanup=()=>{ if(!removed){ removed=true; frame.remove(); } };
+  frame.contentWindow.onafterprint=cleanup;
+  // Let the iframe lay out, then print it. Fallback to whole-window print if blocked.
+  setTimeout(()=>{
+    try{ frame.contentWindow.focus(); frame.contentWindow.print(); }
+    catch(e){ cleanup(); window.print(); }
+    setTimeout(cleanup, 60000); // safety net for browsers that never fire onafterprint
+  }, 250);
+}
 function msg(t){ $('copyMsg').textContent=t; setTimeout(()=>$('copyMsg').textContent='',9000); } // linger so slower readers don't miss it
 function dl(name, content, type){
   const b=new Blob([content],{type}); const u=URL.createObjectURL(b);
